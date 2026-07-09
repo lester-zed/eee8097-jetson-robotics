@@ -1,0 +1,26 @@
+services:
+  robot-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: robot-dev:latest
+    container_name: robot-dev
+    runtime: nvidia
+    network_mode: host
+    stdin_open: true
+    tty: true
+    privileged: true
+    working_dir: /workspace
+    volumes:
+      - ../src:/workspace/src
+      - ../configs:/workspace/configs
+      - ../data:/workspace/data
+      - ../models:/workspace/models
+      - ../logs:/workspace/logs
+      - ../requirements.txt:/workspace/requirements.txt
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    command: /bin/bash

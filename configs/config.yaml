@@ -1,0 +1,16 @@
+project:
+  name: robot_dev
+  mode: mock
+
+arm:
+  enabled: true
+  port: /dev/ttyUSB0
+  baudrate: 115200
+
+vision:
+  enabled: false
+  mode: mock
+  target_label: test_object
+
+task:
+  demo_mode: true
