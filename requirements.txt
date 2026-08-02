@@ -1,13 +1,23 @@
-numpy
-pyyaml
-ipython
-matplotlib
-opencv-python
+# ============================================================
+# Python dependencies
+#
+# NumPy and OpenCV are intentionally installed through apt:
+#   python3-numpy
+#   python3-opencv
+#
+# This avoids pip OpenCV overriding the Jetson/Ubuntu build.
+# ============================================================
+
+PyYAML==6.0.2
+
+ipython==8.37.0
+
+matplotlib==3.7.5
+
 pyserial==3.5
-certifi==2023.7.22
-charset-normalizer==3.2.0
-customtkinter==5.2.0
+
+requests==2.32.3
+
+customtkinter==5.2.2
 darkdetect==0.8.0
-idna==3.4
-requests==2.31.0
-urllib3==2.0.4
+ultralytics
