@@ -18,6 +18,7 @@ import sys
 import time
 from typing import Any, Callable, Sequence
 
+from arm_control.coordinate_frames import wrap_degrees
 from arm_control.roarm_uart import RoArmState, RoArmTimeoutError, RoArmUart
 
 
@@ -44,6 +45,12 @@ DEFAULT_DELTAS_DEG = {
     4: -8.0,
 }
 
+# RoArm feedback is quantized and can sit a fraction of a degree beyond a
+# documented joint limit (for example J4=180.1 degrees after power-on).  This
+# tolerance applies only to received feedback.  Every commanded target remains
+# inside the original JOINT_LIMITS_DEG values.
+FEEDBACK_LIMIT_SLACK_DEG = 0.5
+
 
 @dataclass(frozen=True)
 class JointSpec:
@@ -60,6 +67,7 @@ class MotionSettings:
     tolerance_deg: float = 4.0
     inactive_tolerance_deg: float = 4.0
     limit_margin_deg: float = 1.0
+    feedback_limit_slack_deg: float = FEEDBACK_LIMIT_SLACK_DEG
     settle_margin_s: float = 0.8
     feedback_timeout_s: float = 3.0
     feedback_poll_s: float = 0.25
@@ -74,6 +82,7 @@ class JointResult:
     start_deg: float
     target_deg: float
     commanded_delta_deg: float
+    feedback_start_deg: float | None = None
     reached_deg: float | None = None
     returned_deg: float | None = None
     target_error_deg: float | None = None
@@ -110,6 +119,48 @@ def joint_error_degrees(joint: int, actual: float, expected: float) -> float:
     if joint == 1:
         return abs((float(actual) - float(expected) + 180.0) % 360.0 - 180.0)
     return abs(float(actual) - float(expected))
+
+
+def camera_forward_base_degrees(mount_yaw_deg: float) -> float:
+    """Return the absolute J1 angle that points along Camera forward.
+
+    ``mount_yaw_deg`` describes the arm-frame yaw relative to the robot/camera
+    frame.  Camera forward is therefore ``-mount_yaw_deg`` in the arm frame.
+    ``+180`` and ``-180`` are physically equivalent; the canonical transform
+    prefers ``+180`` for display, while J1 feedback checks remain circular.
+    """
+    mount_yaw = _finite(mount_yaw_deg, "mount_yaw_deg")
+    return wrap_degrees(-mount_yaw, prefer_positive_180=True)
+
+
+def clamp_feedback_to_joint_limits(
+    angle_deg: float,
+    limits_deg: tuple[float, float],
+    *,
+    slack_deg: float = FEEDBACK_LIMIT_SLACK_DEG,
+) -> float:
+    """Clamp a tiny feedback-only limit overshoot to the command-safe limit.
+
+    This function never widens a command limit.  A feedback angle no farther
+    than ``slack_deg`` outside the documented range is treated as sensor or
+    conversion noise and clamped to the nearest limit.  A larger overshoot is
+    still rejected before any motion command is sent.
+    """
+    angle = _finite(angle_deg, "joint feedback angle")
+    slack = _finite(slack_deg, "feedback limit slack")
+    lower, upper = map(float, limits_deg)
+
+    if not math.isfinite(lower) or not math.isfinite(upper) or lower >= upper:
+        raise ValueError("invalid joint limits")
+    if slack < 0.0:
+        raise ValueError("feedback limit slack must be non-negative")
+    if angle < lower - slack or angle > upper + slack:
+        raise ValueError(
+            f"feedback angle {angle:.1f} outside joint limits "
+            f"[{lower:.1f}, {upper:.1f}] beyond {slack:.1f} degree tolerance"
+        )
+
+    return min(max(angle, lower), upper)
 
 
 def choose_target_degrees(
@@ -214,18 +265,15 @@ def wait_for_target(
 
 def direction_hint(joint: int, commanded_delta_deg: float, mount_yaw_deg: float) -> str:
     sign = "+" if commanded_delta_deg > 0 else "-"
-    normalized_yaw = (float(mount_yaw_deg) + 180.0) % 360.0 - 180.0
-    if joint == 1 and math.isclose(abs(normalized_yaw), 180.0, abs_tol=1.0):
-        expected = "Camera 右侧" if commanded_delta_deg > 0 else "Camera 左侧"
-        return (
-            f"反向安装假设下，J1 {sign} 方向应朝 {expected}；"
-            "若相反，需要复核 mount_yaw 或 J1 方向符号"
-        )
-    if joint == 1 and math.isclose(normalized_yaw, 0.0, abs_tol=1.0):
-        expected = "Camera 左侧" if commanded_delta_deg > 0 else "Camera 右侧"
-        return f"同向安装假设下，J1 {sign} 方向应朝 {expected}"
+    mount_yaw = _finite(mount_yaw_deg, "mount_yaw_deg")
     if joint == 1:
-        return "记录末端从 Camera 视角向左还是向右，用于安装偏航标定"
+        # mount_yaw changes only the absolute zero offset.  It does not invert
+        # yaw handedness: increasing J1 is Camera-left in the robot frame.
+        expected = "Camera 左侧" if commanded_delta_deg > 0 else "Camera 右侧"
+        return (
+            f"J1 {sign} 方向应朝 {expected}；"
+            f"mount_yaw={mount_yaw:.1f}° 只改变绝对零点偏置"
+        )
     if joint == 2:
         return f"记录 J2 {sign} 方向使机械臂抬高还是降低"
     if joint == 3:
@@ -256,8 +304,13 @@ def run_joint_sequence(
         started = time.monotonic()
         start_state = arm.get_state()
         validate_state(start_state)
-        start_deg = state_angle_degrees(start_state, spec.joint)
         limits = arm.JOINT_LIMITS_DEG[spec.joint]
+        feedback_start_deg = state_angle_degrees(start_state, spec.joint)
+        start_deg = clamp_feedback_to_joint_limits(
+            feedback_start_deg,
+            limits,
+            slack_deg=settings.feedback_limit_slack_deg,
+        )
         target_deg, delta_deg = choose_target_degrees(
             start_deg,
             spec.preferred_delta_deg,
@@ -272,6 +325,7 @@ def run_joint_sequence(
             start_deg=start_deg,
             target_deg=target_deg,
             commanded_delta_deg=delta_deg,
+            feedback_start_deg=feedback_start_deg,
         )
 
         try:
@@ -282,6 +336,12 @@ def run_joint_sequence(
                 f"\n{spec.name}: {start_deg:.1f}° -> {target_deg:.1f}° "
                 f"-> {start_deg:.1f}°"
             )
+            if not math.isclose(feedback_start_deg, start_deg, abs_tol=1e-9):
+                print(
+                    "反馈边界归一化："
+                    f"{feedback_start_deg:.1f}° -> {start_deg:.1f}°；"
+                    "发送命令仍使用原始关节限位"
+                )
             print(f"观察提示：{hint}")
 
             arm.move_single_joint_degrees(
@@ -453,8 +513,27 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--inactive-tolerance", type=float, default=4.0)
     parser.add_argument("--hold", type=float, default=1.5)
     parser.add_argument("--mount-yaw", type=float, default=180.0)
-    parser.add_argument("--base-zero-tolerance", type=float, default=15.0)
-    parser.add_argument("--allow-nonzero-base", action="store_true")
+    parser.add_argument(
+        "--base-forward-tolerance",
+        "--base-zero-tolerance",
+        dest="base_forward_tolerance",
+        type=float,
+        default=15.0,
+        help=(
+            "Maximum circular J1 error from Camera forward. "
+            "--base-zero-tolerance remains as a backward-compatible alias."
+        ),
+    )
+    parser.add_argument(
+        "--allow-base-away-from-camera-forward",
+        "--allow-nonzero-base",
+        dest="allow_base_away_from_camera_forward",
+        action="store_true",
+        help=(
+            "Bypass the Camera-forward J1 start check. "
+            "Use only for a deliberately verified non-forward start pose."
+        ),
+    )
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-clearance", action="store_true")
     parser.add_argument("--yes", action="store_true", help="Skip the one-time MOVE prompt")
@@ -481,6 +560,8 @@ def _validate_settings(settings: MotionSettings) -> None:
             raise ValueError(f"{label} must be positive")
     if settings.hold_s < 0.0:
         raise ValueError("hold must be non-negative")
+    if not 0.0 <= settings.feedback_limit_slack_deg <= 1.0:
+        raise ValueError("feedback limit slack must be in [0, 1] degree")
 
 
 def _print_plan(
@@ -494,7 +575,12 @@ def _print_plan(
     print("\n=== RoArm J1-J4 self-test plan ===")
     print(f"Voltage: {initial.voltage_v:.2f} V")
     for spec in specs:
-        start = state_angle_degrees(initial, spec.joint)
+        feedback_start = state_angle_degrees(initial, spec.joint)
+        start = clamp_feedback_to_joint_limits(
+            feedback_start,
+            limits[spec.joint],
+            slack_deg=settings.feedback_limit_slack_deg,
+        )
         target, delta = choose_target_degrees(
             start,
             spec.preferred_delta_deg,
@@ -503,11 +589,17 @@ def _print_plan(
         )
         hint = direction_hint(spec.joint, delta, mount_yaw_deg)
         print(f"{spec.name:<16} {start:7.1f}° -> {target:7.1f}° -> {start:7.1f}°")
+        if not math.isclose(feedback_start, start, abs_tol=1e-9):
+            print(
+                f"  feedback {feedback_start:.1f}° clamped to "
+                f"command-safe {start:.1f}°"
+            )
         print(f"  {hint}")
         plan.append(
             {
                 "joint": spec.joint,
                 "name": spec.name,
+                "feedback_start_deg": feedback_start,
                 "start_deg": start,
                 "target_deg": target,
                 "commanded_delta_deg": delta,
@@ -539,6 +631,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         _validate_settings(settings)
         specs = _build_specs(args)
+        camera_forward_deg = camera_forward_base_degrees(args.mount_yaw)
+        if not 0.0 < args.base_forward_tolerance <= 180.0:
+            raise ValueError("base forward tolerance must be in (0, 180]")
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -558,6 +653,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "timestamp_utc": timestamp,
         "device": args.port,
         "mount_yaw_degrees": args.mount_yaw,
+        "camera_forward_base_degrees": camera_forward_deg,
         "motion_requested": bool(args.execute),
         "t100_sent": False,
         "overall": "FAIL",
@@ -575,16 +671,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             validate_state(initial)
             payload["initial_state"] = _state_payload(initial)
 
-            if 1 in args.joints and not args.allow_nonzero_base:
+            if (
+                1 in args.joints
+                and not args.allow_base_away_from_camera_forward
+            ):
+                current_base = state_angle_degrees(initial, 1)
                 base_error = joint_error_degrees(
                     1,
-                    state_angle_degrees(initial, 1),
-                    0.0,
+                    current_base,
+                    camera_forward_deg,
                 )
-                if base_error > args.base_zero_tolerance:
+                if base_error > args.base_forward_tolerance:
                     raise RuntimeError(
-                        "Base is not near 0 degrees, so Camera direction cannot be "
-                        f"judged reliably (error={base_error:.1f} degrees)."
+                        "Base is not near Camera forward "
+                        f"(current={current_base:.1f} degrees, "
+                        f"expected={camera_forward_deg:.1f} degrees, "
+                        f"circular error={base_error:.1f} degrees)."
                     )
 
             plan = _print_plan(
