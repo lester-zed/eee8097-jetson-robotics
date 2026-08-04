@@ -15,12 +15,17 @@ if str(SOURCE_ROOT) not in sys.path:
 
 from arm_control.roarm_joint_selftest import (
     DEFAULT_DELTAS_DEG,
+    FEEDBACK_LIMIT_SLACK_DEG,
     JOINT_NAMES,
     STATE_ATTRIBUTES,
     JointSpec,
     MotionSettings,
+    _print_plan,
+    camera_forward_base_degrees,
     choose_target_degrees,
+    clamp_feedback_to_joint_limits,
     direction_hint,
+    joint_error_degrees,
     run_joint_sequence,
 )
 from arm_control.roarm_uart import RoArmState
@@ -107,10 +112,70 @@ class TargetSelectionTests(unittest.TestCase):
         self.assertEqual(delta, -10.0)
 
 
+class FeedbackLimitTests(unittest.TestCase):
+    def test_small_feedback_overshoot_is_clamped_to_command_limit(self) -> None:
+        self.assertEqual(
+            clamp_feedback_to_joint_limits(
+                180.1,
+                (45.0, 180.0),
+                slack_deg=FEEDBACK_LIMIT_SLACK_DEG,
+            ),
+            180.0,
+        )
+
+    def test_feedback_beyond_slack_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "beyond 0.5 degree tolerance"):
+            clamp_feedback_to_joint_limits(
+                180.6,
+                (45.0, 180.0),
+                slack_deg=FEEDBACK_LIMIT_SLACK_DEG,
+            )
+
+    def test_plan_accepts_j4_feedback_slightly_above_limit(self) -> None:
+        arm = FakeArm()
+        arm.angles[4] = 180.1
+
+        with patch("builtins.print"):
+            plan = _print_plan(
+                arm.get_state(),
+                [all_specs()[-1]],
+                MotionSettings(),
+                arm.JOINT_LIMITS_DEG,
+                180.0,
+            )
+
+        self.assertAlmostEqual(plan[0]["feedback_start_deg"], 180.1)
+        self.assertEqual(plan[0]["start_deg"], 180.0)
+        self.assertEqual(plan[0]["target_deg"], 172.0)
+
+
 class DirectionHintTests(unittest.TestCase):
-    def test_reverse_mount_j1_positive_is_camera_right(self) -> None:
+    def test_reverse_mount_j1_positive_is_camera_left(self) -> None:
         hint = direction_hint(1, 10.0, 180.0)
+        self.assertIn("Camera 左侧", hint)
+
+    def test_reverse_mount_j1_negative_is_camera_right(self) -> None:
+        hint = direction_hint(1, -10.0, 180.0)
         self.assertIn("Camera 右侧", hint)
+
+    def test_mount_yaw_changes_offset_not_j1_direction(self) -> None:
+        forward_hint = direction_hint(1, 10.0, 0.0)
+        reverse_hint = direction_hint(1, 10.0, 180.0)
+        self.assertIn("Camera 左侧", forward_hint)
+        self.assertIn("Camera 左侧", reverse_hint)
+
+
+class CameraForwardTests(unittest.TestCase):
+    def test_camera_forward_for_aligned_mount_is_zero(self) -> None:
+        self.assertEqual(camera_forward_base_degrees(0.0), 0.0)
+
+    def test_camera_forward_for_reverse_mount_is_180(self) -> None:
+        self.assertEqual(camera_forward_base_degrees(180.0), 180.0)
+
+    def test_negative_178_feedback_is_near_reverse_mount_forward(self) -> None:
+        expected = camera_forward_base_degrees(180.0)
+        error = joint_error_degrees(1, -178.4, expected)
+        self.assertAlmostEqual(error, 1.6, places=6)
 
 
 class SequenceTests(unittest.TestCase):
@@ -157,6 +222,36 @@ class SequenceTests(unittest.TestCase):
         self.assertFalse(results[1].passed)
         self.assertEqual(arm.angles[2], 0.0)
         self.assertEqual(arm.commands[-1], (2, 0.0))
+
+    @patch("arm_control.roarm_joint_selftest.time.sleep", return_value=None)
+    def test_j4_180_1_feedback_moves_to_172_and_returns_to_180(
+        self,
+        _: object,
+    ) -> None:
+        arm = FakeArm()
+        arm.angles[4] = 180.1
+        settings = MotionSettings(
+            speed_deg_s=5,
+            acceleration_deg_s2=10,
+            tolerance_deg=0.5,
+            inactive_tolerance_deg=0.5,
+            settle_margin_s=0.0,
+            feedback_timeout_s=0.1,
+            feedback_poll_s=0.01,
+            hold_s=0.0,
+        )
+
+        results = run_joint_sequence(
+            arm,
+            [all_specs()[-1]],
+            settings,
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0].passed)
+        self.assertAlmostEqual(results[0].feedback_start_deg, 180.1)
+        self.assertEqual(arm.commands, [(4, 172.0), (4, 180.0)])
+        self.assertEqual(arm.angles[4], 180.0)
 
 
 if __name__ == "__main__":
