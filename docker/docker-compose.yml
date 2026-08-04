@@ -37,8 +37,8 @@ services:
     command: /bin/bash
 
     devices:
-      - "${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_82321ce7d917f0118564667db887153e-if00-port0}:/dev/ttyROARM"
-      - "${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_c877520e295df0119ae253401045c30f-if00-port0}:/dev/ttyRPLIDAR"
+      - "${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_888387d8d017f011b9526a7db887153e-if00-port0}:/dev/ttyROARM"
+      - "${RPLIDAR_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_c877520e295df0119ae253401045c30f-if00-port0}:/dev/ttyRPLIDAR"
       - "${CAMERA_DEVICE:-/dev/video0}:/dev/video0"
 
     group_add:

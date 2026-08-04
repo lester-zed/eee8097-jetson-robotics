@@ -4,7 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$SCRIPT_DIR/../docker"
 
-ROARM_DEVICE="${ROARM_DEVICE:-/dev/ttyUSB0}"
+ROARM_DEVICE="${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_82321ce7d917f0118564667db887153e-if00-port0}"
+
+RPLIDAR_DEVICE="${RPLIDAR_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_c877520e295df0119ae253401045c30f-if00-port0}"
 
 if [[ ! -c "$ROARM_DEVICE" ]]; then
     echo "Error: RoArm serial device not found: $ROARM_DEVICE"
