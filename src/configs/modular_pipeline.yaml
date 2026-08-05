@@ -1,0 +1,109 @@
+# EEE8097 Camera + RPLIDAR + RoArm modular pipeline configuration
+#
+# 默认使用真实 Camera、真实 RPLIDAR、Mock RoArm。
+# 在完成坐标标定和小范围 T=104 测试之前，不要把 arm.mode 改成 real。
+
+app:
+  target: cup
+  ssh: true
+  detection_timeout_s: 20.0
+
+camera:
+  mode: real                 # mock | real
+  index: 0
+  confidence: 0.55
+  stable_frames: 3
+
+  # 640x480 图像的临时主点应接近 (320, 240)。
+  # 最终必须替换为 Camera 标定结果。
+  fx_px: 900.0
+  fy_px: 900.0
+  cx_px: 320.0
+  cy_px: 240.0
+
+  # Camera optical centre 在 base_link 下的位置。
+  origin_in_base_mm: [0.0, 0.0, 0.0]
+  yaw_in_base_deg: 0.0
+
+lidar:
+  mode: real                 # mock | real
+  device: /dev/ttyRPLIDAR
+  sdk_binary: null
+  baudrate: 460800
+  scan_count: 3
+  timeout_s: 12.0
+
+  # RPLIDAR 原始角度中，机器人 +X 正前方对应的角度。
+  front_angle_deg: 0.0
+  # +1：原始角度增加方向与 base_link +Y（机器人左侧）一致；-1：相反。
+  angle_sign: 1
+  target_half_width_deg: 5.0
+
+  min_range_mm: 120.0
+  max_range_mm: 12000.0
+  min_quality: 1
+  min_points: 3
+  outlier_mm: 150.0
+
+  # RPLIDAR 扫描中心在 base_link 下的位置。
+  origin_in_base_mm: [0.0, 0.0, 0.0]
+
+  # 仅在 lidar.mode=mock 时使用。
+  mock_distance_mm: 350.0
+
+localization:
+  # V1 的 Z 不是 RPLIDAR 测得值，而是配置的抓取点高度。
+  target_z_mm: 140.0
+  # 完成 Camera/LiDAR/Arm 外参测量与验证后才改为 true。
+  calibration_approved: false
+
+arm_mount:
+  # RoArm 底座旋转轴原点在 base_link 下的位置。
+  origin_in_base_mm: [0.0, 0.0, 0.0]
+  # 180 表示 RoArm 自身 +X 与机器人/Camera +X 反向。
+  yaw_in_base_deg: 180.0
+
+planner:
+  # 沿“机械臂原点 → 目标”的径向方向生成预抓取点。
+  approach_distance_mm: 80.0
+  pregrasp_height_mm: 60.0
+  lift_height_mm: 100.0
+
+  # 直接传给 RoArm T=104 的 t 与 spd。
+  # tool_angle_rad 必须通过你的夹爪姿态测试确认。
+  tool_angle_rad: 3.14
+  cartesian_speed: 0.15
+  gripper_open_rad: 2.70
+  gripper_closed_rad: 3.14
+
+workspace:
+  min_x_mm: -500.0
+  max_x_mm: 500.0
+  min_y_mm: -500.0
+  max_y_mm: 500.0
+  min_z_mm: 0.0
+  max_z_mm: 500.0
+  max_radius_mm: 600.0
+
+arm:
+  mode: mock                 # mock | real
+  device: /dev/ttyROARM
+  baudrate: 115200
+
+  # 以下四项必须全部满足，真实控制器才会建立。
+  allow_real_motion: false
+  confirm_clearance: false
+  require_typed_confirmation: true
+  confirmation_phrase: EXECUTE ONE GRASP
+
+  one_grasp_per_process: true
+  feedback_tolerance_mm: 12.0
+  waypoint_timeout_s: 15.0
+  feedback_poll_s: 0.20
+  gripper_settle_s: 1.0
+  min_voltage_v: 7.0
+  max_voltage_v: 13.0
+
+pipeline:
+  # Mock 模式可以处理 provisional 坐标；Real 模式始终拒绝 provisional。
+  allow_provisional_in_mock: true
