@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# This script is intentionally stored inside src because Docker mounts only
-# the host src directory at /workspace/src.
 SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_PATH="${1:-${SOURCE_ROOT}/configs/modular_pipeline.yaml}"
+PIPELINE_CONFIG="${1:-${SOURCE_ROOT}/configs/modular_pipeline.yaml}"
+HOME_CONFIG="${2:-${SOURCE_ROOT}/configs/roarm_home.yaml}"
 
-# A relative custom path is resolved relative to the mounted source root.
-if [[ "${CONFIG_PATH}" != /* ]]; then
-  CONFIG_PATH="${SOURCE_ROOT}/${CONFIG_PATH}"
+if [[ "${PIPELINE_CONFIG}" != /* ]]; then
+  PIPELINE_CONFIG="${SOURCE_ROOT}/${PIPELINE_CONFIG}"
+fi
+if [[ "${HOME_CONFIG}" != /* ]]; then
+  HOME_CONFIG="${SOURCE_ROOT}/${HOME_CONFIG}"
 fi
 
 cd "${SOURCE_ROOT}"
-exec python3 main_modular.py --config "${CONFIG_PATH}"
+exec python3 launch_modular_pipeline.py \
+  --config "${PIPELINE_CONFIG}" \
+  --home-config "${HOME_CONFIG}"

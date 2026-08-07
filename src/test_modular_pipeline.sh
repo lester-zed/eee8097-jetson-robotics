@@ -8,6 +8,10 @@ python3 main_modular.py \
   --config configs/modular_pipeline.yaml \
   --validate-config
 
+python3 roarm_manual_test.py \
+  validate \
+  --config configs/modular_pipeline.yaml
+
 python3 -m compileall -q \
   configuration \
   interfaces \
@@ -19,9 +23,10 @@ python3 -m compileall -q \
   planning \
   arm_control/arm_adapter.py \
   arm_control/cartesian_roarm_controller.py \
-  main_modular.py
+  main_modular.py \
+  roarm_manual_test.py
 
 python3 -m unittest discover \
   -s tests \
-  -p 'test_modular_pipeline*.py' \
+  -p 'test_*.py' \
   -v

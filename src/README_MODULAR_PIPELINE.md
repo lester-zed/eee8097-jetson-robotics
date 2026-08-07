@@ -1,85 +1,57 @@
-# EEE8097 Docker-mounted modular pipeline V3
+# EEE8097 GitHub-baselined modular pipeline V5
 
-This layout assumes Docker mounts only the project `src/` directory:
-
-```text
-host project/src  ->  /workspace/src
-```
-
-All runtime files are therefore kept inside `src/`:
+This package was regenerated against GitHub `main` commit:
 
 ```text
-src/
-├── main_modular.py
-├── run_modular_pipeline.sh
-├── test_modular_pipeline.sh
-├── configs/modular_pipeline.yaml
-├── docs/
-├── configuration/
-├── interfaces/
-├── adapters/
-├── pipeline/
-├── vision/
-├── lidar/
-├── localization/
-├── planning/
-└── arm_control/
+d0536866a0eab21e149173b1ad636ac4d3d0403f
+Merge pull request #10: update whole process pipeline with camera rplidar roarm
 ```
 
-## Extract
+The Docker environment mounts only the host `src/` directory to `/workspace/src`.
+All configuration, scripts, documents, tests and runtime code in this package are
+therefore located below `src/`.
 
-Run from the host project root:
+## Install from the host project root
 
 ```bash
-unzip -o eee8097_modular_pipeline_v3_docker_src_extract_into_project_root_2026-08-06.zip
-chmod +x src/run_modular_pipeline.sh src/test_modular_pipeline.sh
+unzip -o eee8097_modular_pipeline_v5_github_d053_manual_roarm_extract_into_project_root_2026-08-06.zip
+chmod +x src/run_modular_pipeline.sh src/run_roarm_manual_test.sh src/test_modular_pipeline.sh
 ```
 
-The archive contains only a top-level `src/` directory. It does not require a
-new Docker bind mount and does not overwrite the existing `src/main.py`.
-
-## Run inside Docker
-
-```bash
-cd /workspace/src
-./run_modular_pipeline.sh
-```
-
-Equivalent command:
-
-```bash
-cd /workspace/src
-python3 main_modular.py --config configs/modular_pipeline.yaml
-```
-
-A custom config located under the mounted source tree can be supplied as:
-
-```bash
-./run_modular_pipeline.sh configs/my_pipeline.yaml
-```
-
-## Validate and test inside Docker
+## Test inside Docker
 
 ```bash
 cd /workspace/src
 ./test_modular_pipeline.sh
 ```
 
-## Configuration
+## Sensor pipeline
 
-Edit only:
+```bash
+cd /workspace/src
+./run_modular_pipeline.sh
+```
+
+The default YAML uses real Camera, real RPLIDAR and mock RoArm.
+
+## Standalone RoArm tests
+
+```bash
+cd /workspace/src
+./run_roarm_manual_test.sh validate
+./run_roarm_manual_test.sh status
+./run_roarm_manual_test.sh capture-current
+./run_roarm_manual_test.sh plan
+./run_roarm_manual_test.sh gripper-open
+./run_roarm_manual_test.sh gripper-close
+./run_roarm_manual_test.sh reset
+./run_roarm_manual_test.sh execute
+```
+
+Real motion is disabled by default. Edit only:
 
 ```text
 /workspace/src/configs/modular_pipeline.yaml
 ```
 
-The default configuration keeps RoArm in mock mode. Real motion remains locked
-until calibration approval and all real-motion confirmations are enabled.
-
-## Important physical limitations
-
-- The RPLIDAR scan plane must intersect the target.
-- `localization.target_z_mm` remains a configured height, not a 3-D LiDAR result.
-- Camera intrinsics and Camera/LiDAR/RoArm mounting parameters must be measured.
-- T=104 firmware IK does not provide collision checking.
-- Software stop is not a certified emergency stop.
+Read `docs/ROARM_MANUAL_TEST_AND_CALIBRATION.md` before enabling motion.

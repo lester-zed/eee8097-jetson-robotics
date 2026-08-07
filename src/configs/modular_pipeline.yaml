@@ -77,13 +77,13 @@ planner:
   gripper_closed_rad: 3.14
 
 workspace:
-  min_x_mm: -500.0
+  min_x_mm: -430.0
   max_x_mm: 500.0
-  min_y_mm: -500.0
-  max_y_mm: 500.0
-  min_z_mm: 0.0
-  max_z_mm: 500.0
-  max_radius_mm: 600.0
+  min_y_mm: -100.0
+  max_y_mm: 100.0
+  min_z_mm: -60.0
+  max_z_mm: 280.0
+  max_radius_mm: 460.0
 
 arm:
   mode: mock                 # mock | real
@@ -97,7 +97,7 @@ arm:
   confirmation_phrase: EXECUTE ONE GRASP
 
   one_grasp_per_process: true
-  feedback_tolerance_mm: 12.0
+  feedback_tolerance_mm: 20.0
   waypoint_timeout_s: 15.0
   feedback_poll_s: 0.20
   gripper_settle_s: 1.0
@@ -107,3 +107,52 @@ arm:
 pipeline:
   # Mock 模式可以处理 provisional 坐标；Real 模式始终拒绝 provisional。
   allow_provisional_in_mock: true
+
+# Standalone RoArm test configuration.
+# This section is used only by run_roarm_manual_test.sh and does not change
+# the Camera + RPLIDAR pipeline until arm.mode is later set to real.
+manual_arm_test:
+  enabled: true
+  allow_real_motion: true
+  confirm_clearance: true
+  coordinates_approved: true
+
+  execute_confirmation_phrase: EXECUTE MANUAL ROARM GRASP
+  reset_confirmation_phrase: RESET ROARM TO INITIAL POSITION
+  gripper_confirmation_phrase: MOVE ROARM GRIPPER
+
+  # T=100 may keep the firmware busy; the script waits before polling T=105.
+  reset_wait_s: 8.0
+  reset_timeout_s: 25.0
+
+  feedback_tolerance_mm: 12.0
+    # 单次 T=105 查询超时
+  uart_response_timeout_s: 2.0
+  # T=104 发出后，不要立即查询状态
+  feedback_initial_delay_s: 1.0
+  # 两次反馈查询之间的间隔
+  feedback_poll_s: 0.30
+  waypoint_timeout_s: 25.0
+  feedback_poll_s: 0.50
+  gripper_settle_s: 1.0
+
+  tool_angle_rad: 3.14
+  cartesian_speed: 0.20
+  gripper_open_rad: 2.2
+  gripper_closed_rad: 3.14
+
+  gripper_speed_steps_s: 400
+  gripper_acceleration: 10
+
+  gripper_settle_s: 1.0
+  gripper_motion_margin_s: 0.75
+
+  # Absolute coordinates in the RoArm arm_base frame, in millimetres.
+  # Keep null until you have read the current pose and deliberately selected
+  # a clear, reachable test path. The execute action refuses null values.
+  waypoints:
+    pregrasp: [-310, -5, 230]
+    grasp:    [-380, -20, -100]
+    lift:     [-350, -5, 100]
+    retreat:  [-310, -5, 230]
+

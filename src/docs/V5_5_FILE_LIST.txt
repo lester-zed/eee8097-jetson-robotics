@@ -1,0 +1,9 @@
+Modified:
+src/arm_control/cartesian_roarm_controller.py
+src/roarm_manual_test.py
+src/main_modular.py
+src/tests/test_modular_pipeline_configured.py
+
+Added:
+src/docs/V5_5_GRIPPER_CLOSE_BEFORE_LIFT_FIX.md
+src/docs/V5_5_FILE_LIST.txt

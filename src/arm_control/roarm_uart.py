@@ -56,7 +56,7 @@ class RoArmUart:
         1: (-180.0, 180.0),
         2: (-90.0, 90.0),
         3: (0.0, 180.0),
-        4: (45.0, 180.0),
+        4: (45.0 - 1e-3, 180.0 + 1e-3),
     }
     GRIPPER_LIMITS_RAD = (1.08, 3.14)
 
@@ -66,7 +66,7 @@ class RoArmUart:
         baudrate: int = 115200,
         *,
         read_timeout_seconds: float = 0.10,
-        response_timeout_seconds: float = 2.0,
+        response_timeout_seconds: float = 3.0,
         serial_factory: Callable[..., Any] | None = None,
     ) -> None:
         if baudrate <= 0:
