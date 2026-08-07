@@ -1,0 +1,56 @@
+# RoArm custom joint-space home and pre-pipeline startup configuration.
+# This file is separate from modular_pipeline.yaml so Camera/LiDAR calibration
+# parameters are not overwritten by future home-pose tuning.
+
+roarm_home:
+  # When run_before_pipeline is true, run_modular_pipeline.sh executes this
+  # T=122 home before main_modular.py starts Camera/LiDAR processing.
+  enabled: true
+  run_before_pipeline: true
+  require_success_before_pipeline: true
+
+  device: /dev/ttyROARM
+  baudrate: 115200
+  response_timeout_s: 3.0
+
+  # Real-motion interlocks. Change both to true only after clearing the arm's
+  # complete swept volume and keeping access to the 12 V power switch.
+  allow_real_motion: true
+  confirm_clearance: true
+  confirmation_phrase: HOME ROARM FOR PIPELINE
+
+  # Recovery commands sent before T=122.
+  stop_continuous_first: true
+  enable_torque_first: true
+
+  # Machine-forward custom home.
+  # The stock b=0 home points opposite the robot on the current installation,
+  # so b=180 rotates the arm toward robot +X. If the cable path or shortest
+  # rotation is undesirable, use -180; both represent the same heading.
+  pose:
+    base_deg: -175.0
+    shoulder_deg: 0.0
+    elbow_deg: 90.0
+
+    # null preserves the current clamp/wrist joint angle read from T=105.
+    # Set an explicit value only after verifying the installed EoAT.
+    hand_deg: null
+
+  motion:
+    # Increased from the previous conservative 5 deg/s.
+    speed_deg_s: 20
+    acceleration_deg_s2: 25
+    timeout_s: 20.0
+    poll_s: 0.25
+    tolerance_deg: 5.0
+    settle_s: 0.8
+
+# Runtime-only overrides merged into modular_pipeline.yaml by the launcher.
+# The original file is not modified. Official T=104 examples commonly use
+# spd=0.25; this raises the prior conservative 0.15 value without using the
+# fastest direct-control mode.
+pipeline_overrides:
+  enabled: true
+  values:
+    planner:
+      cartesian_speed: 0.25

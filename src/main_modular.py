@@ -152,7 +152,12 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
             feedback_tolerance_mm=float(arm_cfg.get("feedback_tolerance_mm", 12.0)),
             waypoint_timeout_s=float(arm_cfg.get("waypoint_timeout_s", 15.0)),
             feedback_poll_s=float(arm_cfg.get("feedback_poll_s", 0.20)),
+            feedback_initial_delay_s=float(arm_cfg.get("feedback_initial_delay_s", arm_cfg.get("initial_feedback_delay_s", 0.75))),
+            uart_response_timeout_s=float(arm_cfg.get("uart_response_timeout_s", 2.0)),
             gripper_settle_s=float(arm_cfg.get("gripper_settle_s", 1.0)),
+            gripper_speed_steps_s=int(arm_cfg.get("gripper_speed_steps_s", 100)),
+            gripper_acceleration=int(arm_cfg.get("gripper_acceleration", 10)),
+            gripper_motion_margin_s=float(arm_cfg.get("gripper_motion_margin_s", 0.75)),
             min_voltage_v=float(arm_cfg.get("min_voltage_v", 7.0)),
             max_voltage_v=float(arm_cfg.get("max_voltage_v", 13.0)),
         )
