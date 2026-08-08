@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
 import yaml
 
 
@@ -47,6 +46,26 @@ class RuntimeConfig:
             if mode not in {"mock", "real"}:
                 raise ConfigError(f"{section}.mode must be 'mock' or 'real'")
 
+        if not str(self.get("app", "target", "")).strip():
+            raise ConfigError("app.target must be a non-empty class label")
+
+        confidence = float(self.get("camera", "confidence", 0.55))
+        if not 0.0 < confidence <= 1.0:
+            raise ConfigError("camera.confidence must be in (0, 1]")
+
+        if int(self.get("camera", "stable_frames", 3)) < 1:
+            raise ConfigError("camera.stable_frames must be >= 1")
+
+        if int(self.get("camera", "stability_tolerance_px", 40)) < 1:
+            raise ConfigError("camera.stability_tolerance_px must be >= 1")
+
+        if int(self.get("camera", "imgsz", 640)) <= 0:
+            raise ConfigError("camera.imgsz must be positive")
+
+        if str(self.get("camera", "mode")).lower() == "real":
+            if not str(self.get("camera", "model_path", "")).strip():
+                raise ConfigError("camera.mode=real requires camera.model_path")
+
         fx = float(self.get("camera", "fx_px"))
         fy = float(self.get("camera", "fy_px"))
         if fx <= 0.0 or fy <= 0.0:
@@ -66,9 +85,7 @@ class RuntimeConfig:
             if not bool(self.get("arm", "confirm_clearance", False)):
                 raise ConfigError("arm.mode=real requires arm.confirm_clearance=true")
             if not bool(self.get("localization", "calibration_approved", False)):
-                raise ConfigError(
-                    "arm.mode=real requires localization.calibration_approved=true"
-                )
+                raise ConfigError("arm.mode=real requires localization.calibration_approved=true")
 
 
 def load_runtime_config(path: str | Path) -> RuntimeConfig:

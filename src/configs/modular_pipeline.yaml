@@ -4,15 +4,24 @@
 # 在完成坐标标定和小范围 T=104 测试之前，不要把 arm.mode 改成 real。
 
 app:
-  target: cup
+  # 当前 pipeline 要寻找/抓取的类别。必须与所加载 YOLO 模型的类别名一致。
+  target: tissue_pack
   ssh: true
   detection_timeout_s: 20.0
 
 camera:
   mode: real                 # mock | real
   index: 0
+
+  # Object detection model / inference settings.
+  # Docker maps repository models/ to /workspace/models.
+  model_path: /workspace/models/tissue_pack_yolov8n_v1.pt
   confidence: 0.55
   stable_frames: 3
+  stability_tolerance_px: 40
+  imgsz: 640
+  device: 0                 # Jetson CUDA device; use null for Ultralytics auto-selection.
+  show_preview: true        # X11 preview; set false for headless operation.
 
   # 640x480 图像的临时主点应接近 (320, 240)。
   # 最终必须替换为 Camera 标定结果。
@@ -22,7 +31,7 @@ camera:
   cy_px: 240.0
 
   # Camera optical centre 在 base_link 下的位置。
-  origin_in_base_mm: [0.0, 0.0, 0.0]
+  origin_in_base_mm: [-260.0, 0.0, -70.0]
   yaw_in_base_deg: 0.0
 
 lidar:
@@ -30,7 +39,7 @@ lidar:
   device: /dev/ttyRPLIDAR
   sdk_binary: null
   baudrate: 460800
-  scan_count: 3
+  scan_count: 2
   timeout_s: 12.0
 
   # RPLIDAR 原始角度中，机器人 +X 正前方对应的角度。
@@ -46,7 +55,7 @@ lidar:
   outlier_mm: 150.0
 
   # RPLIDAR 扫描中心在 base_link 下的位置。
-  origin_in_base_mm: [0.0, 0.0, 0.0]
+  origin_in_base_mm: [-260.0, 0.0, -100.0]
 
   # 仅在 lidar.mode=mock 时使用。
   mock_distance_mm: 350.0
@@ -155,4 +164,3 @@ manual_arm_test:
     grasp:    [-380, -20, -100]
     lift:     [-350, -5, 100]
     retreat:  [-310, -5, 230]
-
