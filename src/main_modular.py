@@ -71,11 +71,22 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
     if camera_mode == "real":
         from vision.yolo_camera_adapter import ExistingYoloCameraAdapter
         vision = ExistingYoloCameraAdapter(
+            model_path=str(camera_cfg["model_path"]),
             camera_index=int(camera_cfg.get("index", 0)),
             target_label=target,
             confidence_threshold=float(camera_cfg.get("confidence", 0.55)),
             stable_frames=int(camera_cfg.get("stable_frames", 3)),
-            show_preview=not bool(app.get("ssh", True)),
+            stability_tolerance_px=int(
+                camera_cfg.get("stability_tolerance_px", 40)
+            ),
+            inference_imgsz=int(camera_cfg.get("imgsz", 640)),
+            device=camera_cfg.get("device"),
+            show_preview=bool(
+                camera_cfg.get(
+                    "show_preview",
+                    not bool(app.get("ssh", True)),
+                )
+            ),
         )
     else:
         vision = MockVisionAdapter(target_label=target)
