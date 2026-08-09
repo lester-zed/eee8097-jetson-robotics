@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
 import yaml
 
 
@@ -79,13 +80,29 @@ class RuntimeConfig:
         self.vector3("lidar", "origin_in_base_mm")
         self.vector3("arm_mount", "origin_in_base_mm")
 
+        for key, default in (
+            ("recheck_timeout_s", 8.0),
+            ("max_recheck_center_shift_px", 60.0),
+            ("max_recheck_target_shift_mm", 60.0),
+            ("max_range_mad_mm", 60.0),
+            ("max_range_span_mm", 250.0),
+        ):
+            if float(self.get("pipeline", key, default)) <= 0.0:
+                raise ConfigError(f"pipeline.{key} must be positive")
+
         if str(self.get("arm", "mode")).lower() == "real":
             if not bool(self.get("arm", "allow_real_motion", False)):
                 raise ConfigError("arm.mode=real requires arm.allow_real_motion=true")
             if not bool(self.get("arm", "confirm_clearance", False)):
                 raise ConfigError("arm.mode=real requires arm.confirm_clearance=true")
             if not bool(self.get("localization", "calibration_approved", False)):
-                raise ConfigError("arm.mode=real requires localization.calibration_approved=true")
+                raise ConfigError(
+                    "arm.mode=real requires localization.calibration_approved=true"
+                )
+            if not bool(self.get("localization", "target_z_approved", False)):
+                raise ConfigError(
+                    "arm.mode=real requires localization.target_z_approved=true"
+                )
 
 
 def load_runtime_config(path: str | Path) -> RuntimeConfig:
