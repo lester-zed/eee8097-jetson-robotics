@@ -18,6 +18,8 @@ YOLO detection
 
 - Camera, RPLIDAR, and RoArm adapters are integrated behind stable interfaces.
 - The real one-grasp path is implemented with a pre-execution sensor recheck.
+- Every terminal pipeline run is recorded as structured JSONL and CSV.
+- A Real Camera + Real RPLIDAR + Mock Arm calibration capture path is available.
 - RoArm joint self-test, custom home, manual Cartesian test, and boot health checks are available.
 - ROS 2, URDF/TF2, MoveIt 2, Gazebo, and Sim2Real evaluation are the next development stage.
 
@@ -37,6 +39,8 @@ YOLO detection
 | J1-J4 startup self-test | `src/run_robot_startup_test.sh` |
 | Manual Cartesian arm test | `src/run_roarm_manual_test.sh` |
 | Dataset capture | `src/run_tissue_capture.sh` |
+| No-motion calibration capture | `src/run_calibration_capture.sh` |
+| Calibration/experiment report | `src/run_calibration_report.sh` |
 
 Legacy parallel entry points have been removed. New features should extend the
 modular pipeline rather than introduce another top-level controller.
@@ -48,7 +52,7 @@ Inside the existing Docker container:
 ```bash
 cd /workspace/src
 
-# Configuration, compile checks, and all no-hardware unit tests
+# Configuration, compile checks, and all no-hardware unit tests (46 tests)
 ./test_modular_pipeline.sh
 
 # Validate the committed real-hardware YAML without opening devices
@@ -81,6 +85,7 @@ src/localization/       Sensor-to-base target localization
 src/planning/           Workspace checks and grasp waypoints
 src/arm_control/        UART, Cartesian execution, home, and self-test
 src/pipeline/           Canonical task state machine
+src/experiments/        Structured run records and calibration statistics
 src/tests/              No-hardware regression tests
 src/docs/               Active project documentation
 ```

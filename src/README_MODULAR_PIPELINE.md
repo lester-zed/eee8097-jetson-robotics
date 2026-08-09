@@ -17,6 +17,7 @@ Target:  tissue_pack
 
 The current geometry, workspace, distance thresholds, and grasp offsets are
 hardware-tuned values. Do not alter them as part of an unrelated code change.
+The current operator-selected planner Y compensation is `-15 mm`.
 
 ## No-hardware validation
 
@@ -54,6 +55,27 @@ cd /workspace/src
 Real RoArm mode requires the exact typed confirmation phrase before the serial
 port is opened. The process remains limited to one grasp.
 
+## Structured run records
+
+Every terminal real-pipeline run appends JSONL and CSV under
+`/workspace/logs/experiments/`. The record includes the merged configuration,
+Git commit, sensor observations, recheck deltas, target poses, four waypoints,
+execution result, duration, and failure information.
+
+For localization measurements without arm motion, use:
+
+```bash
+./run_calibration_capture.sh \
+  --point-id P11 \
+  --truth-x-mm <measured-X> \
+  --truth-y-mm <measured-Y> \
+  --repeat 3
+```
+
+This selects Real Camera + Real RPLIDAR + Mock Arm, skips startup home, and
+never opens the RoArm serial port. See
+`docs/CALIBRATION_AND_EXPERIMENT_LOGGING.md` for the 3 x 3 protocol.
+
 ## Main controls
 
 ```text
@@ -76,4 +98,5 @@ q  abort and quit
 - `docs/ROARM_HOME.md`: custom T=122 startup home.
 - `docs/ROARM_JOINT_SELFTEST.md`: J1-J4 direction and return test.
 - `docs/RPLIDAR_AND_HEALTHCHECK.md`: sensor setup and boot checks.
+- `docs/CALIBRATION_AND_EXPERIMENT_LOGGING.md`: no-motion capture, logs, and metrics.
 - `docs/REPOSITORY_STRUCTURE.md`: authoritative modules and PR boundaries.
