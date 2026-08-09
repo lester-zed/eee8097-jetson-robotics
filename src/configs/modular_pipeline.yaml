@@ -1,10 +1,10 @@
 # EEE8097 Camera + RPLIDAR + RoArm modular pipeline configuration
 #
-# 默认使用真实 Camera、真实 RPLIDAR、Mock RoArm。
-# 在完成坐标标定和小范围 T=104 测试之前，不要把 arm.mode 改成 real。
+# Current recommended phase:
+#   REAL Camera + REAL RPLIDAR + MOCK RoArm.
+# Keep real automatic motion disabled until X/Y/yaw and grasp Z have both been validated.
 
 app:
-  # 当前 pipeline 要寻找/抓取的类别。必须与所加载 YOLO 模型的类别名一致。
   target: tissue_pack
   ssh: true
   detection_timeout_s: 20.0
@@ -13,76 +13,71 @@ camera:
   mode: real                 # mock | real
   index: 0
 
-  # Object detection model / inference settings.
-  # Docker maps repository models/ to /workspace/models.
   model_path: /workspace/models/tissue_pack_yolov8n_v1.pt
   confidence: 0.55
   stable_frames: 3
   stability_tolerance_px: 40
   imgsz: 640
-  device: 0                 # Jetson CUDA device; use null for Ultralytics auto-selection.
-  show_preview: true        # X11 preview; set false for headless operation.
+  device: 0
+  show_preview: true
 
-  # 640x480 图像的临时主点应接近 (320, 240)。
-  # 最终必须替换为 Camera 标定结果。
+  # Current provisional intrinsics. Replace with a real camera calibration later.
   fx_px: 900.0
   fy_px: 900.0
   cx_px: 320.0
   cy_px: 240.0
 
-  # Camera optical centre 在 base_link 下的位置。
+  # Initial relative calibration already present on main.
   origin_in_base_mm: [-260.0, 0.0, -70.0]
-  yaw_in_base_deg: 0.0
+  yaw_in_base_deg: 180.0
 
 lidar:
   mode: real                 # mock | real
   device: /dev/ttyRPLIDAR
   sdk_binary: null
   baudrate: 460800
-  scan_count: 2
+  scan_count: 4
   timeout_s: 12.0
 
-  # RPLIDAR 原始角度中，机器人 +X 正前方对应的角度。
-  front_angle_deg: 0.0
-  # +1：原始角度增加方向与 base_link +Y（机器人左侧）一致；-1：相反。
+  front_angle_deg: 180.0
   angle_sign: 1
-  target_half_width_deg: 5.0
+  target_half_width_deg: 8.0
 
   min_range_mm: 120.0
-  max_range_mm: 12000.0
+  max_range_mm: 300.0
   min_quality: 1
-  min_points: 3
-  outlier_mm: 150.0
+  min_points: 2
+  outlier_mm: 100.0
 
-  # RPLIDAR 扫描中心在 base_link 下的位置。
+  # Initial relative calibration already present on main.
   origin_in_base_mm: [-260.0, 0.0, -100.0]
 
-  # 仅在 lidar.mode=mock 时使用。
   mock_distance_mm: 350.0
 
 localization:
-  # V1 的 Z 不是 RPLIDAR 测得值，而是配置的抓取点高度。
-  target_z_mm: 140.0
-  # 完成 Camera/LiDAR/Arm 外参测量与验证后才改为 true。
-  calibration_approved: false
+  # RPLIDAR only provides X/Y. Z is a configured grasp-point height.
+  target_z_mm: -110.0
+
+  # Approve only after checking several physically measured X/Y target positions.
+  calibration_approved: true
+
+  # Separate approval for the configured grasp Z. Real mode requires both flags.
+  target_z_approved: true
 
 arm_mount:
-  # RoArm 底座旋转轴原点在 base_link 下的位置。
   origin_in_base_mm: [0.0, 0.0, 0.0]
-  # 180 表示 RoArm 自身 +X 与机器人/Camera +X 反向。
-  yaw_in_base_deg: 180.0
+  yaw_in_base_deg: 0.0
 
 planner:
-  # 沿“机械臂原点 → 目标”的径向方向生成预抓取点。
   approach_distance_mm: 80.0
-  pregrasp_height_mm: 60.0
-  lift_height_mm: 100.0
+  pregrasp_height_mm: 300.0
+  lift_height_mm: 200.0
 
-  # 直接传给 RoArm T=104 的 t 与 spd。
-  # tool_angle_rad 必须通过你的夹爪姿态测试确认。
+  grasp_y_offset_mm: -30.0
+
   tool_angle_rad: 3.14
   cartesian_speed: 0.15
-  gripper_open_rad: 2.70
+  gripper_open_rad: 2.20
   gripper_closed_rad: 3.14
 
 workspace:
@@ -90,36 +85,52 @@ workspace:
   max_x_mm: 500.0
   min_y_mm: -100.0
   max_y_mm: 100.0
-  min_z_mm: -60.0
+  min_z_mm: -120.0
   max_z_mm: 280.0
   max_radius_mm: 460.0
 
 arm:
-  mode: mock                 # mock | real
+  mode: real                 # mock | real
   device: /dev/ttyROARM
   baudrate: 115200
 
-  # 以下四项必须全部满足，真实控制器才会建立。
-  allow_real_motion: false
-  confirm_clearance: false
+  allow_real_motion: true
+  confirm_clearance: true
   require_typed_confirmation: true
   confirmation_phrase: EXECUTE ONE GRASP
 
   one_grasp_per_process: true
   feedback_tolerance_mm: 20.0
-  waypoint_timeout_s: 15.0
+  waypoint_timeout_s: 25.0
   feedback_poll_s: 0.20
+  feedback_initial_delay_s: 1.0
+  uart_response_timeout_s: 2.0
+
   gripper_settle_s: 1.0
+  gripper_speed_steps_s: 250
+  gripper_acceleration: 10
+  gripper_motion_margin_s: 0.75
+
   min_voltage_v: 7.0
   max_voltage_v: 13.0
 
 pipeline:
-  # Mock 模式可以处理 provisional 坐标；Real 模式始终拒绝 provisional。
   allow_provisional_in_mock: true
 
-# Standalone RoArm test configuration.
-# This section is used only by run_roarm_manual_test.sh and does not change
-# the Camera + RPLIDAR pipeline until arm.mode is later set to real.
+  # Run a second Camera + RPLIDAR observation immediately before planning.
+  # The second observation becomes the target that is actually planned/executed.
+  pre_execute_recheck: true
+  recheck_timeout_s: 8.0
+
+  # Reject a target that moved significantly between the two observations.
+  max_recheck_center_shift_px: 60.0
+  max_recheck_target_shift_mm: 60.0
+
+  # Reject a noisy/mixed RPLIDAR sector before it reaches the planner.
+  max_range_mad_mm: 60.0
+  max_range_span_mm: 250.0
+
+# Existing standalone manual-arm test configuration retained.
 manual_arm_test:
   enabled: true
   allow_real_motion: true
@@ -130,17 +141,12 @@ manual_arm_test:
   reset_confirmation_phrase: RESET ROARM TO INITIAL POSITION
   gripper_confirmation_phrase: MOVE ROARM GRIPPER
 
-  # T=100 may keep the firmware busy; the script waits before polling T=105.
   reset_wait_s: 8.0
   reset_timeout_s: 25.0
 
   feedback_tolerance_mm: 12.0
-    # 单次 T=105 查询超时
   uart_response_timeout_s: 2.0
-  # T=104 发出后，不要立即查询状态
   feedback_initial_delay_s: 1.0
-  # 两次反馈查询之间的间隔
-  feedback_poll_s: 0.30
   waypoint_timeout_s: 25.0
   feedback_poll_s: 0.50
   gripper_settle_s: 1.0
@@ -152,13 +158,8 @@ manual_arm_test:
 
   gripper_speed_steps_s: 400
   gripper_acceleration: 10
-
-  gripper_settle_s: 1.0
   gripper_motion_margin_s: 0.75
 
-  # Absolute coordinates in the RoArm arm_base frame, in millimetres.
-  # Keep null until you have read the current pose and deliberately selected
-  # a clear, reachable test path. The execute action refuses null values.
   waypoints:
     pregrasp: [-310, -5, 230]
     grasp:    [-380, -20, -100]

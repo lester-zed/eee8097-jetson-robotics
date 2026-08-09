@@ -15,12 +15,22 @@ class PlanarTargetLocalizer:
         base_to_arm: BaseToArmTransformPort,
         target_z_mm: float,
         calibration_approved: bool = False,
+        target_z_approved: bool = False,
     ) -> None:
         self.base_to_arm = base_to_arm
         self.target_z_mm = float(target_z_mm)
         self.calibration_approved = bool(calibration_approved)
+        self.target_z_approved = bool(target_z_approved)
 
-    def localize(self, detection: Detection2D, measurement: RangeMeasurement) -> TargetPose:
+    @property
+    def execution_calibration_ready(self) -> bool:
+        return self.calibration_approved and self.target_z_approved
+
+    def localize(
+        self,
+        detection: Detection2D,
+        measurement: RangeMeasurement,
+    ) -> TargetPose:
         if measurement.distance_mm <= 0.0:
             raise ValueError("range distance must be positive")
 
@@ -49,7 +59,7 @@ class PlanarTargetLocalizer:
             confidence=detection.confidence,
             target_base_link=target_base,
             target_arm_base=target_arm,
-            provisional=not self.calibration_approved,
+            provisional=not self.execution_calibration_ready,
             metadata={
                 "localization_method": method,
                 "camera_bearing_deg": measurement.camera_bearing_deg,
@@ -57,5 +67,7 @@ class PlanarTargetLocalizer:
                 "lidar_bearing_deg": measurement.lidar_bearing_deg,
                 "lidar_scan_plane_must_intersect_target": True,
                 "target_z_is_configured_not_measured": True,
+                "xy_calibration_approved": self.calibration_approved,
+                "target_z_approved": self.target_z_approved,
             },
         )

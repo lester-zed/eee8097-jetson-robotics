@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+import math
 from threading import Event, Lock, Thread
 from typing import Any
 
@@ -18,6 +19,7 @@ class TaskState(str, Enum):
     DETECTING = "DETECTING"
     RANGING = "RANGING"
     LOCALIZING = "LOCALIZING"
+    RECHECKING = "RECHECKING"
     PLANNING = "PLANNING"
     EXECUTING = "EXECUTING"
     VERIFYING = "VERIFYING"
@@ -37,6 +39,12 @@ class ModularTaskManager:
         arm: ArmPort,
         detection_timeout_s: float = 20.0,
         allow_provisional_execution: bool = True,
+        pre_execute_recheck: bool = True,
+        recheck_timeout_s: float = 8.0,
+        max_recheck_center_shift_px: float = 60.0,
+        max_recheck_target_shift_mm: float = 60.0,
+        max_range_mad_mm: float = 60.0,
+        max_range_span_mm: float = 250.0,
     ) -> None:
         self.vision = vision
         self.range_sensor = range_sensor
@@ -45,6 +53,13 @@ class ModularTaskManager:
         self.arm = arm
         self.detection_timeout_s = float(detection_timeout_s)
         self.allow_provisional_execution = bool(allow_provisional_execution)
+        self.pre_execute_recheck = bool(pre_execute_recheck)
+        self.recheck_timeout_s = float(recheck_timeout_s)
+        self.max_recheck_center_shift_px = float(max_recheck_center_shift_px)
+        self.max_recheck_target_shift_mm = float(max_recheck_target_shift_mm)
+        self.max_range_mad_mm = float(max_range_mad_mm)
+        self.max_range_span_mm = float(max_range_span_mm)
+
         self._state = TaskState.IDLE
         self._state_lock = Lock()
         self._abort_event = Event()
@@ -56,6 +71,7 @@ class ModularTaskManager:
         self._last_execution: ExecutionResult | None = None
         self._last_error: str | None = None
         self._health: list[dict[str, Any]] = []
+        self._verification: dict[str, Any] | None = None
 
     def start(self) -> bool:
         with self._state_lock:
@@ -65,7 +81,11 @@ class ModularTaskManager:
                 return False
             self._clear_last_run()
             self._abort_event.clear()
-            self._worker = Thread(target=self._run_task, name="modular-grasp-worker", daemon=True)
+            self._worker = Thread(
+                target=self._run_task,
+                name="modular-grasp-worker",
+                daemon=True,
+            )
             self._worker.start()
             return True
 
@@ -99,6 +119,7 @@ class ModularTaskManager:
             "detection": self._last_detection.to_dict() if self._last_detection else None,
             "range": self._last_range.to_dict() if self._last_range else None,
             "target": self._last_target.to_dict() if self._last_target else None,
+            "verification": self._verification,
             "plan": self._last_plan.to_dict() if self._last_plan else None,
             "execution": self._last_execution.to_dict() if self._last_execution else None,
             "error": self._last_error,
@@ -114,6 +135,45 @@ class ModularTaskManager:
             except Exception:
                 pass
 
+    def _validate_range_quality(
+        self,
+        measurement: RangeMeasurement,
+        *,
+        stage: str,
+    ) -> None:
+        if measurement.distance_mm <= 0.0:
+            raise RuntimeError(f"{stage} produced a non-positive range")
+
+        if measurement.mad_mm > self.max_range_mad_mm:
+            raise RuntimeError(
+                f"{stage} range MAD too large: "
+                f"{measurement.mad_mm:.1f} mm > {self.max_range_mad_mm:.1f} mm"
+            )
+
+        span = measurement.maximum_mm - measurement.minimum_mm
+        if span > self.max_range_span_mm:
+            raise RuntimeError(
+                f"{stage} range span too large: "
+                f"{span:.1f} mm > {self.max_range_span_mm:.1f} mm"
+            )
+
+    @staticmethod
+    def _detection_shift_px(first: Detection2D, second: Detection2D) -> float:
+        return math.hypot(
+            float(second.center_x - first.center_x),
+            float(second.center_y - first.center_y),
+        )
+
+    @staticmethod
+    def _target_shift_mm(first: TargetPose, second: TargetPose) -> float:
+        a = first.target_base_link
+        b = second.target_base_link
+        return math.sqrt(
+            (b.x_mm - a.x_mm) ** 2
+            + (b.y_mm - a.y_mm) ** 2
+            + (b.z_mm - a.z_mm) ** 2
+        )
+
     def _run_task(self) -> None:
         try:
             self._set_state(TaskState.PRECHECK)
@@ -127,9 +187,11 @@ class ModularTaskManager:
                 raise RuntimeError(f"precheck failed: {failed}")
             self._raise_if_aborted()
 
+            # Pass 1: Camera -> RPLIDAR -> localization.
             self._set_state(TaskState.DETECTING)
             detection = self.vision.detect_target(
-                self._abort_event, timeout_seconds=self.detection_timeout_s
+                self._abort_event,
+                timeout_seconds=self.detection_timeout_s,
             )
             if detection is None:
                 self._raise_if_aborted()
@@ -138,12 +200,103 @@ class ModularTaskManager:
             self._raise_if_aborted()
 
             self._set_state(TaskState.RANGING)
-            self._last_range = self.range_sensor.measure_target(detection, self._abort_event)
+            measurement = self.range_sensor.measure_target(
+                detection,
+                self._abort_event,
+            )
+            self._validate_range_quality(
+                measurement,
+                stage="initial RPLIDAR measurement",
+            )
+            self._last_range = measurement
             self._raise_if_aborted()
 
             self._set_state(TaskState.LOCALIZING)
-            self._last_target = self.localizer.localize(detection, self._last_range)
+            target = self.localizer.localize(detection, measurement)
+            self._last_target = target
             self._raise_if_aborted()
+
+            # Pass 2: repeat Camera + RPLIDAR immediately before final planning.
+            if self.pre_execute_recheck:
+                initial_detection = detection
+                initial_measurement = measurement
+                initial_target = target
+
+                self._set_state(TaskState.RECHECKING)
+                verified_detection = self.vision.detect_target(
+                    self._abort_event,
+                    timeout_seconds=self.recheck_timeout_s,
+                )
+                if verified_detection is None:
+                    self._raise_if_aborted()
+                    raise RuntimeError(
+                        "pre-execution Camera recheck did not find the target"
+                    )
+                if verified_detection.label != initial_detection.label:
+                    raise RuntimeError(
+                        "pre-execution target label changed: "
+                        f"{initial_detection.label!r} -> {verified_detection.label!r}"
+                    )
+
+                center_shift = self._detection_shift_px(
+                    initial_detection,
+                    verified_detection,
+                )
+                if center_shift > self.max_recheck_center_shift_px:
+                    raise RuntimeError(
+                        "pre-execution Camera target moved too far: "
+                        f"{center_shift:.1f}px > "
+                        f"{self.max_recheck_center_shift_px:.1f}px"
+                    )
+
+                verified_measurement = self.range_sensor.measure_target(
+                    verified_detection,
+                    self._abort_event,
+                )
+                self._validate_range_quality(
+                    verified_measurement,
+                    stage="verification RPLIDAR measurement",
+                )
+
+                verified_target = self.localizer.localize(
+                    verified_detection,
+                    verified_measurement,
+                )
+                target_shift = self._target_shift_mm(
+                    initial_target,
+                    verified_target,
+                )
+                if target_shift > self.max_recheck_target_shift_mm:
+                    raise RuntimeError(
+                        "pre-execution fused target moved too far: "
+                        f"{target_shift:.1f}mm > "
+                        f"{self.max_recheck_target_shift_mm:.1f}mm"
+                    )
+
+                self._verification = {
+                    "passed": True,
+                    "center_shift_px": center_shift,
+                    "range_shift_mm": abs(
+                        verified_measurement.distance_mm
+                        - initial_measurement.distance_mm
+                    ),
+                    "target_shift_mm": target_shift,
+                    "initial_target_base_link": (
+                        initial_target.target_base_link.to_dict()
+                    ),
+                    "verified_target_base_link": (
+                        verified_target.target_base_link.to_dict()
+                    ),
+                }
+
+                # Use the observation closest to execution as the authoritative target.
+                detection = verified_detection
+                measurement = verified_measurement
+                target = verified_target
+                self._last_detection = detection
+                self._last_range = measurement
+                self._last_target = target
+                self._raise_if_aborted()
 
             self._set_state(TaskState.PLANNING)
             self._last_plan = self.planner.plan(self._last_target)
@@ -155,7 +308,10 @@ class ModularTaskManager:
                 )
 
             self._set_state(TaskState.EXECUTING)
-            self._last_execution = self.arm.execute_grasp(self._last_plan, self._abort_event)
+            self._last_execution = self.arm.execute_grasp(
+                self._last_plan,
+                self._abort_event,
+            )
             self._raise_if_aborted()
 
             self._set_state(TaskState.VERIFYING)
@@ -163,6 +319,7 @@ class ModularTaskManager:
                 raise RuntimeError(self._last_execution.message)
             self._raise_if_aborted()
             self._set_state(TaskState.COMPLETE)
+
         except InterruptedError:
             self._set_state(TaskState.ABORTED)
         except Exception as exc:
@@ -177,6 +334,7 @@ class ModularTaskManager:
         self._last_execution = None
         self._last_error = None
         self._health = []
+        self._verification = None
 
     def _set_state(self, state: TaskState) -> None:
         with self._state_lock:

@@ -1,0 +1,13 @@
+# Add this field to your CURRENT planner section.
+# Do not replace the rest of your hand-tuned YAML.
+#
+# Latest real run:
+#   measured target Y ≈ -6.34 mm
+# With this compensation:
+#   commanded grasp Y ≈ -21.34 mm
+planner:
+  grasp_y_offset_mm: -15.0
+
+# Sign:
+#   negative -> farther toward arm_base -Y
+#   positive -> farther toward arm_base +Y

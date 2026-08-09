@@ -18,7 +18,7 @@ DEFAULT_CONFIG = SOURCE_ROOT / "configs/modular_pipeline.yaml"
 
 HELP = """
 Commands:
-  s  Start one complete detect → range → localize → plan → execute task
+  s  Start one complete detect -> range -> recheck -> plan -> execute task
   x  Abort the current task
   p  Print complete pipeline status
   d  Print the latest detection
@@ -70,6 +70,7 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
     camera_mode = str(camera_cfg.get("mode", "mock")).lower()
     if camera_mode == "real":
         from vision.yolo_camera_adapter import ExistingYoloCameraAdapter
+
         vision = ExistingYoloCameraAdapter(
             model_path=str(camera_cfg["model_path"]),
             camera_index=int(camera_cfg.get("index", 0)),
@@ -94,6 +95,7 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
     lidar_mode = str(lidar_cfg.get("mode", "mock")).lower()
     if lidar_mode == "real":
         from lidar.range_sensor import CameraGuidedRPLidarAdapter
+
         range_sensor = CameraGuidedRPLidarAdapter(
             device=str(lidar_cfg.get("device", "/dev/ttyRPLIDAR")),
             sdk_binary=lidar_cfg.get("sdk_binary"),
@@ -126,12 +128,22 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
         arm_origin_z_mm=arm_origin[2],
         mount_yaw_degrees=float(arm_mount_cfg.get("yaw_in_base_deg", 180.0)),
     )
-    calibration_approved = bool(localization_cfg.get("calibration_approved", False))
+
+    calibration_approved = bool(
+        localization_cfg.get("calibration_approved", False)
+    )
+    target_z_approved = bool(
+        localization_cfg.get("target_z_approved", False)
+    )
+    execution_calibration_ready = calibration_approved and target_z_approved
+
     localizer = PlanarTargetLocalizer(
         base_to_arm=transform,
         target_z_mm=float(localization_cfg.get("target_z_mm", 140.0)),
         calibration_approved=calibration_approved,
+        target_z_approved=target_z_approved,
     )
+
     limits = WorkspaceLimits(**{
         key: float(workspace_cfg[key])
         for key in (
@@ -143,6 +155,7 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
         approach_distance_mm=float(planner_cfg.get("approach_distance_mm", 80.0)),
         pregrasp_height_mm=float(planner_cfg.get("pregrasp_height_mm", 60.0)),
         lift_height_mm=float(planner_cfg.get("lift_height_mm", 100.0)),
+        grasp_y_offset_mm=float(planner_cfg.get("grasp_y_offset_mm", 0.0)),
         tool_angle_rad=float(planner_cfg.get("tool_angle_rad", 3.14)),
         speed=float(planner_cfg.get("cartesian_speed", 0.15)),
         gripper_open_rad=float(planner_cfg.get("gripper_open_rad", 2.70)),
@@ -153,17 +166,23 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
     arm_mode = str(arm_cfg.get("mode", "mock")).lower()
     if arm_mode == "real":
         from arm_control.arm_adapter import CartesianRoArmAdapter
+
         arm = CartesianRoArmAdapter(
             port=str(arm_cfg.get("device", "/dev/ttyROARM")),
             baudrate=int(arm_cfg.get("baudrate", 115200)),
             allow_real_motion=bool(arm_cfg.get("allow_real_motion", False)),
             confirm_clearance=bool(arm_cfg.get("confirm_clearance", False)),
-            calibration_approved=calibration_approved,
+            calibration_approved=execution_calibration_ready,
             one_grasp_per_process=bool(arm_cfg.get("one_grasp_per_process", True)),
             feedback_tolerance_mm=float(arm_cfg.get("feedback_tolerance_mm", 12.0)),
             waypoint_timeout_s=float(arm_cfg.get("waypoint_timeout_s", 15.0)),
             feedback_poll_s=float(arm_cfg.get("feedback_poll_s", 0.20)),
-            feedback_initial_delay_s=float(arm_cfg.get("feedback_initial_delay_s", arm_cfg.get("initial_feedback_delay_s", 0.75))),
+            feedback_initial_delay_s=float(
+                arm_cfg.get(
+                    "feedback_initial_delay_s",
+                    arm_cfg.get("initial_feedback_delay_s", 0.75),
+                )
+            ),
             uart_response_timeout_s=float(arm_cfg.get("uart_response_timeout_s", 2.0)),
             gripper_settle_s=float(arm_cfg.get("gripper_settle_s", 1.0)),
             gripper_speed_steps_s=int(arm_cfg.get("gripper_speed_steps_s", 100)),
@@ -175,7 +194,9 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
         allow_provisional = False
     else:
         arm = MockArmAdapter()
-        allow_provisional = bool(pipeline_cfg.get("allow_provisional_in_mock", True))
+        allow_provisional = bool(
+            pipeline_cfg.get("allow_provisional_in_mock", True)
+        )
 
     return ModularTaskManager(
         vision=vision,
@@ -185,6 +206,24 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
         arm=arm,
         detection_timeout_s=float(app.get("detection_timeout_s", 20.0)),
         allow_provisional_execution=allow_provisional,
+        pre_execute_recheck=bool(
+            pipeline_cfg.get("pre_execute_recheck", True)
+        ),
+        recheck_timeout_s=float(
+            pipeline_cfg.get("recheck_timeout_s", 8.0)
+        ),
+        max_recheck_center_shift_px=float(
+            pipeline_cfg.get("max_recheck_center_shift_px", 60.0)
+        ),
+        max_recheck_target_shift_mm=float(
+            pipeline_cfg.get("max_recheck_target_shift_mm", 60.0)
+        ),
+        max_range_mad_mm=float(
+            pipeline_cfg.get("max_range_mad_mm", 60.0)
+        ),
+        max_range_span_mm=float(
+            pipeline_cfg.get("max_range_span_mm", 250.0)
+        ),
     )
 
 
