@@ -19,15 +19,19 @@ from lidar.range_sensor import camera_pixel_to_bearing_deg
 from localization.target_localizer import PlanarTargetLocalizer
 from localization.transforms import IdentityBaseToArmTransform
 from pipeline.task_manager import ModularTaskManager, TaskState
-from pipeline.types import Detection2D, GraspPlan, Point3D, TargetPose
+from pipeline.types import Detection2D, GraspPlan, Point3D, RangeMeasurement, TargetPose
 from planning.grasp_planner import SimpleTopDownGraspPlanner
 
 
 class ConfigurationTests(unittest.TestCase):
-    def test_default_configuration_loads(self) -> None:
+    def test_committed_hardware_profile_loads(self) -> None:
         config = load_runtime_config(SOURCE_ROOT / "configs/modular_pipeline.yaml")
         self.assertEqual(config.get("camera", "cx_px"), 320.0)
-        self.assertEqual(config.get("arm", "mode"), "mock")
+        self.assertEqual(config.get("camera", "mode"), "real")
+        self.assertEqual(config.get("lidar", "mode"), "real")
+        self.assertEqual(config.get("arm", "mode"), "real")
+        self.assertTrue(config.get("arm", "require_typed_confirmation"))
+        self.assertTrue(config.get("arm", "one_grasp_per_process"))
 
 
 class BearingTests(unittest.TestCase):
@@ -36,6 +40,47 @@ class BearingTests(unittest.TestCase):
             camera_pixel_to_bearing_deg(pixel_x=320.0, fx_px=900.0, cx_px=320.0),
             0.0,
         )
+
+    def test_left_pixel_is_positive_bearing(self) -> None:
+        self.assertGreater(
+            camera_pixel_to_bearing_deg(pixel_x=240.0, fx_px=900.0, cx_px=320.0),
+            0.0,
+        )
+
+
+class LocalizationTests(unittest.TestCase):
+    def test_planar_localization(self) -> None:
+        detection = Detection2D(
+            label="tissue_pack",
+            confidence=0.9,
+            center_x=320,
+            center_y=240,
+            bbox=(280, 180, 360, 300),
+            frame_width=640,
+            frame_height=480,
+            captured_at_s=0.0,
+        )
+        measurement = RangeMeasurement(
+            distance_mm=250.0,
+            camera_bearing_deg=0.0,
+            lidar_bearing_deg=180.0,
+            base_bearing_deg=0.0,
+            sample_count=10,
+            median_quality=10.0,
+            mad_mm=1.0,
+            minimum_mm=248.0,
+            maximum_mm=252.0,
+            measured_at_s=0.0,
+        )
+        localizer = PlanarTargetLocalizer(
+            base_to_arm=IdentityBaseToArmTransform(),
+            target_z_mm=-110.0,
+        )
+        target = localizer.localize(detection, measurement)
+        self.assertAlmostEqual(target.target_base_link.x_mm, 250.0)
+        self.assertAlmostEqual(target.target_base_link.y_mm, 0.0)
+        self.assertEqual(target.target_arm_base.frame_id, "arm_base")
+        self.assertTrue(target.provisional)
 
 
 class PlannerTests(unittest.TestCase):
@@ -261,3 +306,4 @@ class PipelineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

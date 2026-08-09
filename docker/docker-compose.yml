@@ -18,12 +18,11 @@ services:
 
     volumes:
       - ../src:/workspace/src
-      - ../configs:/workspace/configs
       - ../data:/workspace/data
-      - ../models:/workspace/models
+      # Runtime models are inputs; keep the container mount read-only.
+      - ../models:/workspace/models:ro
       - ../logs:/workspace/logs
       - ../requirements.txt:/workspace/requirements.txt
-      - ../models:/workspace/models:ro
 
       # Local Jetson X11 socket. This is not required by SSH X11 forwarding
       # (localhost:10.0 uses sshd's TCP proxy), but keeping it also allows

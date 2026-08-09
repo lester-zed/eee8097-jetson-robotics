@@ -1,93 +1,69 @@
 # RoArm manual motion test and coordinate calibration
 
-## Important distinction
+The manual tool isolates RoArm UART, Cartesian waypoints, gripper control, and
+feedback from Camera and RPLIDAR behavior.
 
-- `r` in `main_modular.py` resets only the software task state to `IDLE`.
-- `./run_roarm_manual_test.sh reset` sends the physical RoArm `T=100` initial-position command.
+## Software reset versus physical reset
 
-## Read-only checks
+- `r` in `main_modular.py` resets only the task state to `IDLE`.
+- `./run_roarm_manual_test.sh reset` sends the explicit physical T=100 reset
+  after its confirmation gate.
+
+## Read-only commands
 
 ```bash
 cd /workspace/src
 ./run_roarm_manual_test.sh validate
 ./run_roarm_manual_test.sh status
 ./run_roarm_manual_test.sh capture-current
+./run_roarm_manual_test.sh plan
 ```
 
-`capture-current` prints a conservative four-waypoint YAML template in which all
-points equal the current EoAT pose. It produces no Cartesian movement.
+`capture-current` prints a conservative four-waypoint YAML template; it does
+not move the arm.
 
-## Enable motion deliberately
-
-Edit `/workspace/src/configs/modular_pipeline.yaml`:
-
-```yaml
-manual_arm_test:
-  enabled: true
-  allow_real_motion: true
-  confirm_clearance: true
-```
-
-Keep `coordinates_approved: false` until the four absolute `arm_base` waypoints
-have been reviewed and the plan output is correct.
-
-## Gripper and reset tests
+## Motion commands
 
 ```bash
 ./run_roarm_manual_test.sh gripper-open
 ./run_roarm_manual_test.sh gripper-close
+./run_roarm_manual_test.sh execute
 ./run_roarm_manual_test.sh reset
 ```
 
-Every motion command requires an exact typed confirmation phrase.
+Every physical command requires the relevant safety flags and exact typed
+confirmation phrase from `configs/modular_pipeline.yaml`.
 
-## Fixed-coordinate grasp test
+## Fixed-coordinate grasp procedure
 
-1. Read the current EoAT pose with `status`.
-2. Fill `manual_arm_test.waypoints` with a clear, reachable path in `arm_base`.
-3. Run `./run_roarm_manual_test.sh plan` and inspect all four points.
-4. Set `manual_arm_test.coordinates_approved: true`.
-5. Run `./run_roarm_manual_test.sh execute`.
-6. Run `./run_roarm_manual_test.sh reset` separately after the grasp test.
+1. Read the current end-effector pose with `status`.
+2. Put the object in a clear, previously reachable location.
+3. Update only `manual_arm_test.waypoints`.
+4. Run `plan` and inspect all four absolute `arm_base` points.
+5. Confirm physical clearance and keep access to the power switch.
+6. Run `execute` once.
+7. Record final error and failure type before changing another parameter.
 
-The manual path is independent of Camera and RPLIDAR. This isolates T=104,
-T=105, gripper control, feedback tolerance and physical clearance before sensor
-coordinates are permitted to command the arm.
-
-## Coordinate transform used by the main pipeline
-
-The current V3/V4 transform is:
+## Transform used by the main pipeline
 
 ```text
 p_arm = Rz(-arm_mount.yaw_in_base_deg)
         * (p_base - arm_mount.origin_in_base_mm)
 ```
 
-The main parameters are:
+The committed installation currently uses:
 
 ```yaml
-camera:
-  origin_in_base_mm: [x, y, z]
-  yaw_in_base_deg: 0.0
-  fx_px: ...
-  fy_px: ...
-  cx_px: ...
-  cy_px: ...
-
-lidar:
-  origin_in_base_mm: [x, y, z]
-  front_angle_deg: ...
-  angle_sign: 1
-
 arm_mount:
-  origin_in_base_mm: [x, y, z]
-  yaw_in_base_deg: 180.0
+  origin_in_base_mm: [0.0, 0.0, 0.0]
+  yaw_in_base_deg: 0.0
 
 localization:
-  target_z_mm: ...
-  calibration_approved: false
+  target_z_mm: -110.0
+  calibration_approved: true
+  target_z_approved: true
 ```
 
-`target_z_mm` remains a configured grasp height, not a 3-D RPLIDAR result.
-Only set `localization.calibration_approved: true` after testing known target
-positions and verifying the resulting `target_arm_base` error.
+RPLIDAR C1 supplies planar position only. `target_z_mm` must remain a physically
+measured grasp height. Revoke the two approval flags before experimenting with
+new geometry.

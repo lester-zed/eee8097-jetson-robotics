@@ -1,57 +1,79 @@
-# EEE8097 GitHub-baselined modular pipeline V5
+# Modular Camera-RPLIDAR-RoArm pipeline
 
-This package was regenerated against GitHub `main` commit:
+`main_modular.py` is the canonical application entry point. It composes the
+Camera, RPLIDAR, localization, planner, and RoArm components through the
+`interfaces/` contracts.
+
+## Committed runtime profile
+
+`configs/modular_pipeline.yaml` currently selects:
 
 ```text
-d0536866a0eab21e149173b1ad636ac4d3d0403f
-Merge pull request #10: update whole process pipeline with camera rplidar roarm
+Camera:  real
+RPLIDAR: real
+RoArm:   real
+Target:  tissue_pack
 ```
 
-The Docker environment mounts only the host `src/` directory to `/workspace/src`.
-All configuration, scripts, documents, tests and runtime code in this package are
-therefore located below `src/`.
+The current geometry, workspace, distance thresholds, and grasp offsets are
+hardware-tuned values. Do not alter them as part of an unrelated code change.
 
-## Install from the host project root
-
-```bash
-unzip -o eee8097_modular_pipeline_v5_github_d053_manual_roarm_extract_into_project_root_2026-08-06.zip
-chmod +x src/run_modular_pipeline.sh src/run_roarm_manual_test.sh src/test_modular_pipeline.sh
-```
-
-## Test inside Docker
+## No-hardware validation
 
 ```bash
 cd /workspace/src
 ./test_modular_pipeline.sh
 ```
 
-## Sensor pipeline
+This validates the YAML, compiles the active modules, and runs the unit tests.
+It does not open the Camera, RPLIDAR, or RoArm serial port.
+
+To validate only the configuration:
+
+```bash
+python3 main_modular.py \
+  --config configs/modular_pipeline.yaml \
+  --validate-config
+```
+
+## Hardware startup order
 
 ```bash
 cd /workspace/src
+
+# 1. Read-only Camera/RPLIDAR/RoArm checks
+./run_robot_healthcheck.sh
+
+# 2. Optional operator-supervised J1-J4 movement check
+./run_robot_startup_test.sh --motion --step-confirm --record-directions
+
+# 3. Full pipeline; runs configured custom home first
 ./run_modular_pipeline.sh
 ```
 
-The default YAML uses real Camera, real RPLIDAR and mock RoArm.
+Real RoArm mode requires the exact typed confirmation phrase before the serial
+port is opened. The process remains limited to one grasp.
 
-## Standalone RoArm tests
-
-```bash
-cd /workspace/src
-./run_roarm_manual_test.sh validate
-./run_roarm_manual_test.sh status
-./run_roarm_manual_test.sh capture-current
-./run_roarm_manual_test.sh plan
-./run_roarm_manual_test.sh gripper-open
-./run_roarm_manual_test.sh gripper-close
-./run_roarm_manual_test.sh reset
-./run_roarm_manual_test.sh execute
-```
-
-Real motion is disabled by default. Edit only:
+## Main controls
 
 ```text
-/workspace/src/configs/modular_pipeline.yaml
+s  start one detect -> range -> recheck -> localize -> plan -> execute task
+x  request abort
+p  print complete state
+d  latest detection
+l  latest LiDAR measurement
+t  latest target pose
+g  latest grasp plan
+a  arm status
+r  reset the software state to IDLE
+q  abort and quit
 ```
 
-Read `docs/ROARM_MANUAL_TEST_AND_CALIBRATION.md` before enabling motion.
+## Documentation
+
+- `docs/FULL_GRASP_PIPELINE.md`: data path, coordinate frames, and safeguards.
+- `docs/ROARM_MANUAL_TEST_AND_CALIBRATION.md`: isolated arm validation.
+- `docs/ROARM_HOME.md`: custom T=122 startup home.
+- `docs/ROARM_JOINT_SELFTEST.md`: J1-J4 direction and return test.
+- `docs/RPLIDAR_AND_HEALTHCHECK.md`: sensor setup and boot checks.
+- `docs/REPOSITORY_STRUCTURE.md`: authoritative modules and PR boundaries.

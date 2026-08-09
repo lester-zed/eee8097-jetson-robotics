@@ -1,8 +1,10 @@
 # EEE8097 Camera + RPLIDAR + RoArm modular pipeline configuration
 #
-# Current recommended phase:
-#   REAL Camera + REAL RPLIDAR + MOCK RoArm.
-# Keep real automatic motion disabled until X/Y/yaw and grasp Z have both been validated.
+# Operator-validated hardware profile (2026-08-09):
+#   REAL Camera + REAL RPLIDAR + REAL RoArm.
+# This file can command physical motion after the typed confirmation gate.
+# Preserve measured geometry and motion values unless a change is backed by a
+# recorded hardware experiment.
 
 app:
   target: tissue_pack
