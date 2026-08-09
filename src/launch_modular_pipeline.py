@@ -11,19 +11,13 @@ from typing import Any
 
 import yaml
 
+from configuration.loader import RuntimeConfig, load_runtime_config
 from roarm_home import execute_custom_home, load_home_document
 
 
 SOURCE_ROOT = Path(__file__).resolve().parent
 DEFAULT_PIPELINE_CONFIG = SOURCE_ROOT / "configs/modular_pipeline.yaml"
 DEFAULT_HOME_CONFIG = SOURCE_ROOT / "configs/roarm_home.yaml"
-
-
-def _load_mapping(path: Path) -> dict[str, Any]:
-    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError(f"YAML root must be a mapping: {path}")
-    return payload
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -39,6 +33,7 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 def _runtime_config(
     pipeline_path: Path,
     home_document: dict[str, Any],
+    pipeline_config: RuntimeConfig | None = None,
 ) -> tuple[Path, bool]:
     override_section = home_document.get("pipeline_overrides", {})
     if not isinstance(override_section, dict) or not bool(
@@ -48,7 +43,8 @@ def _runtime_config(
     values = override_section.get("values", {})
     if not isinstance(values, dict):
         raise ValueError("pipeline_overrides.values must be a mapping")
-    merged = _deep_merge(_load_mapping(pipeline_path), values)
+    effective = pipeline_config or load_runtime_config(pipeline_path)
+    merged = _deep_merge(effective.data, values)
     handle = tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
@@ -59,6 +55,26 @@ def _runtime_config(
     with handle:
         yaml.safe_dump(merged, handle, sort_keys=False, allow_unicode=True)
     return Path(handle.name), True
+
+
+def should_execute_startup_home(
+    pipeline_config: RuntimeConfig,
+    home_section: dict[str, Any],
+    *,
+    skip_home: bool,
+) -> bool:
+    arm_mode = str(pipeline_config.get("arm", "mode")).lower()
+    experiment = pipeline_config.data.get("experiment", {})
+    requires_mock_arm = isinstance(experiment, dict) and bool(
+        experiment.get("require_mock_arm", False)
+    )
+    return (
+        not skip_home
+        and arm_mode == "real"
+        and not requires_mock_arm
+        and bool(home_section.get("enabled", False))
+        and bool(home_section.get("run_before_pipeline", False))
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,14 +97,25 @@ def main() -> int:
     home_path = Path(args.home_config).expanduser().resolve()
     if not pipeline_path.is_file():
         raise FileNotFoundError(f"Pipeline config not found: {pipeline_path}")
+    pipeline_config = load_runtime_config(pipeline_path)
     home_document = load_home_document(home_path)
     home_section = home_document["roarm_home"]
 
-    should_home = (
+    should_home = should_execute_startup_home(
+        pipeline_config,
+        home_section,
+        skip_home=args.skip_home,
+    )
+    if (
         not args.skip_home
         and bool(home_section.get("enabled", False))
         and bool(home_section.get("run_before_pipeline", False))
-    )
+        and not should_home
+    ):
+        print(
+            "Skipping RoArm startup home because the selected pipeline "
+            "profile does not permit real arm motion."
+        )
     if should_home:
         print("Executing configured T=122 machine-forward home before pipeline...")
         try:
@@ -104,7 +131,11 @@ def main() -> int:
                 raise
             print("WARNING: startup home failed; continuing because require_success=false")
 
-    runtime_path, temporary = _runtime_config(pipeline_path, home_document)
+    runtime_path, temporary = _runtime_config(
+        pipeline_path,
+        home_document,
+        pipeline_config,
+    )
     if temporary:
         print(f"Runtime pipeline config with YAML speed overrides: {runtime_path}")
 
