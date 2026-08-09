@@ -363,7 +363,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--check-yolo", action="store_true")
     parser.add_argument(
         "--yolo-model",
-        default="/workspace/src/vision/yolov8n.pt",
+        default="/workspace/models/tissue_pack_yolov8n_v1.pt",
     )
     parser.add_argument(
         "--expected-roarm-serial",

@@ -123,7 +123,7 @@ def main() -> int:
     for path in [
         "/workspace",
         "/workspace/src",
-        "/workspace/configs",
+        "/workspace/src/configs",
         "/workspace/data",
         "/workspace/models",
         "/workspace/logs",
