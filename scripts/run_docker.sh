@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$SCRIPT_DIR/../docker"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 ROARM_DEVICE="${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_888387d8d017f011b9526a7db887153e-if00-port0}"
 RPLIDAR_DEVICE="${RPLIDAR_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_c877520e295df0119ae253401045c30f-if00-port0}"
@@ -88,6 +89,9 @@ export CAMERA_DEVICE
 export DIALOUT_GID
 export JETSON_DISPLAY="$DISPLAY"
 export DOCKER_XAUTH_FILE
+EEE8097_GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)"
+EEE8097_GIT_COMMIT="${EEE8097_GIT_COMMIT:-unknown}"
+export EEE8097_GIT_COMMIT
 
 cd "$DOCKER_DIR"
 
@@ -97,6 +101,7 @@ echo "Camera device:  $CAMERA_DEVICE"
 echo "Dialout GID:    $DIALOUT_GID"
 echo "X11 DISPLAY:    $JETSON_DISPLAY"
 echo "Docker XAUTH:   $DOCKER_XAUTH_FILE"
+echo "Git commit:     $EEE8097_GIT_COMMIT"
 
 docker compose up -d --force-recreate
 

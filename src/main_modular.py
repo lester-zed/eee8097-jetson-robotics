@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from adapters.mock_devices import MockArmAdapter, MockRangeSensorAdapter, MockVisionAdapter
 from configuration.loader import RuntimeConfig, load_runtime_config
@@ -55,7 +55,11 @@ def _typed_real_motion_confirmation(config: RuntimeConfig) -> None:
         raise PermissionError("Real-motion confirmation phrase did not match")
 
 
-def build_manager(config: RuntimeConfig) -> ModularTaskManager:
+def build_manager(
+    config: RuntimeConfig,
+    *,
+    on_run_complete: Callable[[dict[str, Any]], None] | None = None,
+) -> ModularTaskManager:
     app = config.section("app")
     camera_cfg = config.section("camera")
     lidar_cfg = config.section("lidar")
@@ -224,6 +228,7 @@ def build_manager(config: RuntimeConfig) -> ModularTaskManager:
         max_range_span_mm=float(
             pipeline_cfg.get("max_range_span_mm", 250.0)
         ),
+        on_run_complete=on_run_complete,
     )
 
 
@@ -238,8 +243,17 @@ def main() -> int:
     if args.validate_config:
         print(f"Configuration valid: {config.path}")
         return 0
+    experiment = config.data.get("experiment", {})
+    recorder = None
+    if isinstance(experiment, dict) and bool(experiment.get("enabled", False)):
+        from experiments.recorder import ExperimentRecorder
+
+        recorder = ExperimentRecorder.from_runtime_config(config)
     _typed_real_motion_confirmation(config)
-    manager = build_manager(config)
+    manager = build_manager(
+        config,
+        on_run_complete=recorder.record if recorder is not None else None,
+    )
     camera_mode = config.get("camera", "mode")
     lidar_mode = config.get("lidar", "mode")
     arm_mode = config.get("arm", "mode")
@@ -250,6 +264,9 @@ def main() -> int:
     print(f"Camera: {str(camera_mode).upper()}")
     print(f"RPLIDAR: {str(lidar_mode).upper()}")
     print(f"RoArm: {str(arm_mode).upper()}")
+    if recorder is not None:
+        print(f"Experiment JSONL: {recorder.jsonl_path}")
+        print(f"Experiment CSV:   {recorder.csv_path}")
     print("=" * 72)
     print(HELP)
 
