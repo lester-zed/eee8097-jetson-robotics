@@ -37,8 +37,15 @@ class ExistingYoloCameraAdapter:
             show_preview=show_preview,
         )
 
-    def detect_target(self, abort_event: Event, timeout_seconds: float = 20.0) -> Detection2D | None:
-        result = self._camera.detect_target(abort_event=abort_event, timeout_seconds=timeout_seconds)
+    def detect_target(
+        self,
+        abort_event: Event,
+        timeout_seconds: float = 20.0,
+    ) -> Detection2D | None:
+        result = self._camera.detect_target(
+            abort_event=abort_event,
+            timeout_seconds=timeout_seconds,
+        )
         if result is None:
             return None
         return Detection2D(
@@ -53,11 +60,22 @@ class ExistingYoloCameraAdapter:
         )
 
     def health_check(self) -> HealthResult:
+        status = self._camera.health_snapshot(wait_seconds=3.0)
+        ok = bool(status["ready"] and status["running"] and not status["last_error"])
+        summary = (
+            "Persistent YOLO Camera stream ready"
+            if ok
+            else f"Persistent YOLO Camera stream not ready: {status}"
+        )
         return HealthResult(
             "camera",
-            True,
-            f"YoloCamera adapter initialized with model={self._model_path}; Camera opens when a task starts",
+            ok,
+            summary,
+            {
+                "model_path": self._model_path,
+                **status,
+            },
         )
 
     def close(self) -> None:
-        return None
+        self._camera.close()
