@@ -63,7 +63,7 @@ class CameraGuidedRPLidarAdapter:
         half_width_deg: float = 5.0,
         scan_count: int = 3,
         timeout_seconds: float = 12.0,
-        min_range_mm: float = 120.0,
+        min_range_mm: float = 50.0,
         max_range_mm: float = 12000.0,
         min_quality: int = 1,
         min_points: int = 3,
