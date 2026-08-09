@@ -11,7 +11,7 @@ export PYTHONPATH="${SOURCE_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
 printf '\n[1/3] Validate roarm_home.yaml\n'
 python3 roarm_home.py validate --config configs/roarm_home.yaml
 
-printf '\n[2/3] Compile V7 home/launcher/test files\n'
+printf '\n[2/3] Compile home/launcher/test files\n'
 python3 -m compileall -q \
   roarm_home.py \
   launch_modular_pipeline.py \
