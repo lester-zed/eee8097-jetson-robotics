@@ -1,15 +1,16 @@
 # No-motion Camera + RPLIDAR calibration capture profile.
 #
 # This overlay inherits the current hardware geometry and perception settings
-# from modular_pipeline.yaml, including the operator-selected
-# planner.grasp_y_offset_mm=-15.0 baseline. The estimated target pose used for
-# calibration is recorded before that planner-only compensation is applied.
+# from modular_pipeline.yaml. This raw-capture profile explicitly disables the
+# measured arm-command model so a future dataset cannot train on its own output.
 extends: modular_pipeline.yaml
 
 localization:
   # Capture data before approving a replacement calibration.
   calibration_approved: false
   target_z_approved: false
+  command_calibration:
+    enabled: false
 
 arm:
   mode: mock

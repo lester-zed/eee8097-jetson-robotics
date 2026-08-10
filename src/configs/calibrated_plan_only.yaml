@@ -1,0 +1,24 @@
+# Real perception with the measured command calibration, but no RoArm motion.
+extends: modular_pipeline.yaml
+
+arm:
+  mode: mock
+  allow_real_motion: false
+  confirm_clearance: false
+  require_typed_confirmation: false
+
+pipeline:
+  allow_provisional_in_mock: false
+
+experiment:
+  enabled: true
+  profile: calibrated_plan_only
+  output_dir: /workspace/logs/calibrated_plan_only
+  jsonl_filename: runs.jsonl
+  csv_filename: runs.csv
+  require_mock_arm: true
+
+manual_arm_test:
+  enabled: false
+  allow_real_motion: false
+  confirm_clearance: false
