@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ class ConfigError(ValueError):
 class RuntimeConfig:
     path: Path
     data: dict[str, Any]
+    source_paths: tuple[Path, ...] = ()
 
     def section(self, name: str) -> dict[str, Any]:
         value = self.data.get(name)
@@ -104,14 +106,80 @@ class RuntimeConfig:
                     "arm.mode=real requires localization.target_z_approved=true"
                 )
 
+        experiment = self.data.get("experiment")
+        if experiment is not None:
+            if not isinstance(experiment, dict):
+                raise ConfigError("experiment must be a mapping")
+            if bool(experiment.get("enabled", False)):
+                if not str(experiment.get("profile", "")).strip():
+                    raise ConfigError(
+                        "experiment.enabled=true requires experiment.profile"
+                    )
+                if not str(experiment.get("output_dir", "")).strip():
+                    raise ConfigError(
+                        "experiment.enabled=true requires experiment.output_dir"
+                    )
+                if bool(experiment.get("require_mock_arm", False)) and str(
+                    self.get("arm", "mode")
+                ).lower() != "mock":
+                    raise ConfigError(
+                        "experiment.require_mock_arm=true requires arm.mode=mock"
+                    )
 
-def load_runtime_config(path: str | Path) -> RuntimeConfig:
-    config_path = Path(path).expanduser().resolve()
+
+def _deep_merge(
+    base: dict[str, Any],
+    override: dict[str, Any],
+) -> dict[str, Any]:
+    merged = copy.deepcopy(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = copy.deepcopy(value)
+    return merged
+
+
+def _load_document(
+    path: Path,
+    *,
+    stack: tuple[Path, ...] = (),
+) -> tuple[dict[str, Any], tuple[Path, ...]]:
+    config_path = path.expanduser().resolve()
+    if config_path in stack:
+        chain = " -> ".join(str(item) for item in (*stack, config_path))
+        raise ConfigError(f"Circular config extends chain: {chain}")
     if not config_path.is_file():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
     payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ConfigError("Configuration root must be a YAML mapping")
-    config = RuntimeConfig(path=config_path, data=payload)
+
+    document = copy.deepcopy(payload)
+    extends = document.pop("extends", None)
+    if extends is None:
+        return document, (config_path,)
+    if not isinstance(extends, str) or not extends.strip():
+        raise ConfigError("extends must be a non-empty YAML path string")
+
+    base_path = Path(extends).expanduser()
+    if not base_path.is_absolute():
+        base_path = config_path.parent / base_path
+    base, sources = _load_document(
+        base_path,
+        stack=(*stack, config_path),
+    )
+    return _deep_merge(base, document), (*sources, config_path)
+
+
+def load_runtime_config(path: str | Path) -> RuntimeConfig:
+    config_path = Path(path).expanduser().resolve()
+    payload, source_paths = _load_document(config_path)
+    config = RuntimeConfig(
+        path=config_path,
+        data=payload,
+        source_paths=source_paths,
+    )
     config.validate()
     return config

@@ -132,6 +132,16 @@ pipeline:
   max_range_mad_mm: 60.0
   max_range_span_mm: 250.0
 
+# Append one structured record for every completed, aborted, or failed run.
+# JSONL is the source of truth; CSV mirrors the most useful analysis columns.
+experiment:
+  enabled: true
+  profile: real_grasp
+  output_dir: /workspace/logs/experiments
+  jsonl_filename: runs.jsonl
+  csv_filename: runs.csv
+  require_mock_arm: false
+
 # Existing standalone manual-arm test configuration retained.
 manual_arm_test:
   enabled: true

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from enum import Enum
 import math
 from threading import Event, Lock, Thread
-from typing import Any
+import time
+from typing import Any, Callable
+from uuid import uuid4
 
 from interfaces.arm import ArmPort
 from interfaces.localizer import TargetLocalizerPort
@@ -45,6 +48,7 @@ class ModularTaskManager:
         max_recheck_target_shift_mm: float = 60.0,
         max_range_mad_mm: float = 60.0,
         max_range_span_mm: float = 250.0,
+        on_run_complete: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.vision = vision
         self.range_sensor = range_sensor
@@ -59,6 +63,7 @@ class ModularTaskManager:
         self.max_recheck_target_shift_mm = float(max_recheck_target_shift_mm)
         self.max_range_mad_mm = float(max_range_mad_mm)
         self.max_range_span_mm = float(max_range_span_mm)
+        self._on_run_complete = on_run_complete
 
         self._state = TaskState.IDLE
         self._state_lock = Lock()
@@ -72,6 +77,12 @@ class ModularTaskManager:
         self._last_error: str | None = None
         self._health: list[dict[str, Any]] = []
         self._verification: dict[str, Any] | None = None
+        self._run_id: str | None = None
+        self._run_started_at_utc: str | None = None
+        self._run_started_monotonic_s: float | None = None
+        self._run_finished_at_utc: str | None = None
+        self._run_duration_s: float | None = None
+        self._recording_error: str | None = None
 
     def start(self) -> bool:
         with self._state_lock:
@@ -80,6 +91,13 @@ class ModularTaskManager:
             if self._state in {TaskState.ERROR, TaskState.ABORTED}:
                 return False
             self._clear_last_run()
+            now = datetime.now(timezone.utc)
+            self._run_id = (
+                now.strftime("%Y%m%dT%H%M%S.%fZ")
+                + f"-{uuid4().hex[:8]}"
+            )
+            self._run_started_at_utc = now.isoformat(timespec="milliseconds")
+            self._run_started_monotonic_s = time.monotonic()
             self._abort_event.clear()
             self._worker = Thread(
                 target=self._run_task,
@@ -113,8 +131,14 @@ class ModularTaskManager:
 
     def status(self) -> dict[str, Any]:
         return {
+            "run_id": self._run_id,
             "state": self._state.value,
             "running": self.is_running(),
+            "timing": {
+                "started_at_utc": self._run_started_at_utc,
+                "finished_at_utc": self._run_finished_at_utc,
+                "duration_s": self._run_duration_s,
+            },
             "health": list(self._health),
             "detection": self._last_detection.to_dict() if self._last_detection else None,
             "range": self._last_range.to_dict() if self._last_range else None,
@@ -123,6 +147,7 @@ class ModularTaskManager:
             "plan": self._last_plan.to_dict() if self._last_plan else None,
             "execution": self._last_execution.to_dict() if self._last_execution else None,
             "error": self._last_error,
+            "recording_error": self._recording_error,
         }
 
     def shutdown(self) -> None:
@@ -325,6 +350,25 @@ class ModularTaskManager:
         except Exception as exc:
             self._last_error = f"{type(exc).__name__}: {exc}"
             self._set_state(TaskState.ERROR)
+        finally:
+            self._run_finished_at_utc = datetime.now(timezone.utc).isoformat(
+                timespec="milliseconds"
+            )
+            if self._run_started_monotonic_s is not None:
+                self._run_duration_s = max(
+                    0.0,
+                    time.monotonic() - self._run_started_monotonic_s,
+                )
+            if self._on_run_complete is not None:
+                snapshot = self.status()
+                # The callback runs at the end of this worker, so the durable
+                # record should describe the terminal state rather than the
+                # still-unwinding Python thread.
+                snapshot["running"] = False
+                try:
+                    self._on_run_complete(snapshot)
+                except Exception as exc:
+                    self._recording_error = f"{type(exc).__name__}: {exc}"
 
     def _clear_last_run(self) -> None:
         self._last_detection = None
@@ -335,6 +379,12 @@ class ModularTaskManager:
         self._last_error = None
         self._health = []
         self._verification = None
+        self._run_id = None
+        self._run_started_at_utc = None
+        self._run_started_monotonic_s = None
+        self._run_finished_at_utc = None
+        self._run_duration_s = None
+        self._recording_error = None
 
     def _set_state(self, state: TaskState) -> None:
         with self._state_lock:

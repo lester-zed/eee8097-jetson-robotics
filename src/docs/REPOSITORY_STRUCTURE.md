@@ -21,6 +21,7 @@ pipeline. There is no second application state machine.
 |---|---|---|
 | Runtime composition | `main_modular.py`, `configuration/loader.py` | adapter wiring, validated config fields |
 | State machine | `pipeline/task_manager.py`, `pipeline/types.py` | task states, recheck, execution results |
+| Experiment records | `experiments/`, `tools/calibration_*.py` | JSONL/CSV capture, annotation, metrics |
 | Vision | `vision/yolo_camera.py`, `vision/yolo_camera_adapter.py` | model inference and stable detections |
 | Ranging | `lidar/range_sensor.py`, `lidar/rplidar_distance.py` | target-sector selection and scan filtering |
 | Localization | `localization/target_localizer.py`, `localization/transforms.py` | Camera/LiDAR/base/arm mapping |
@@ -36,6 +37,9 @@ pipeline. There is no second application state machine.
 - `roarm_home.py`: feedback-verified custom T=122 home.
 - `roarm_manual_test.py`: isolated Cartesian/gripper validation.
 - `tools/tissue_dataset_capture.py`: dataset acquisition.
+- `tools/calibration_capture.py`: canonical pipeline with Real sensors and Mock Arm.
+- `tools/calibration_report.py`: localization and grasp-outcome statistics.
+- `tools/annotate_experiment.py`: measured truth and human outcome annotation.
 
 These tools are intentionally separate from the autonomous task state machine.
 They may test hardware, but they must not become parallel application entry
@@ -72,3 +76,5 @@ Do not mix these categories in one commit:
 For every physical parameter change, record the device arrangement, target
 position, before/after value, measured error, and test result in the PR.
 
+Calibration infrastructure belongs in `feat/calibration-and-logging`; measured
+hardware values belong in a later, separate `fix/...` PR.

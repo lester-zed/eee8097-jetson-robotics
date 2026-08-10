@@ -8,12 +8,17 @@ python3 main_modular.py \
   --config configs/modular_pipeline.yaml \
   --validate-config
 
+python3 tools/calibration_capture.py \
+  --config configs/calibration_capture.yaml \
+  --validate-config
+
 python3 roarm_manual_test.py \
   validate \
   --config configs/modular_pipeline.yaml
 
 python3 -m compileall -q \
   configuration \
+  experiments \
   interfaces \
   adapters \
   pipeline \
@@ -24,7 +29,13 @@ python3 -m compileall -q \
   arm_control/arm_adapter.py \
   arm_control/cartesian_roarm_controller.py \
   main_modular.py \
+  launch_modular_pipeline.py \
   roarm_manual_test.py
+
+python3 -m compileall -q \
+  tools/calibration_capture.py \
+  tools/calibration_report.py \
+  tools/annotate_experiment.py
 
 python3 -m unittest discover \
   -s tests \

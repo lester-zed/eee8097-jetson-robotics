@@ -87,6 +87,10 @@ During a task, use `p` to inspect the latest detection, range statistics,
 `target_base_link`, `target_arm_base`, recheck deltas, plan, and execution
 feedback.
 
+Every terminal run is also written to structured JSONL/CSV. Use the dedicated
+Real Camera + Real RPLIDAR + Mock Arm profile for localization measurements;
+see `CALIBRATION_AND_EXPERIMENT_LOGGING.md`.
+
 ## Current limitation
 
 The `VERIFYING` state confirms controller execution and feedback, but it does
