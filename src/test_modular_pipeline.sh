@@ -8,6 +8,10 @@ python3 main_modular.py \
   --config configs/modular_pipeline.yaml \
   --validate-config
 
+python3 main_modular.py \
+  --config configs/calibrated_plan_only.yaml \
+  --validate-config
+
 python3 tools/calibration_capture.py \
   --config configs/calibration_capture.yaml \
   --validate-config

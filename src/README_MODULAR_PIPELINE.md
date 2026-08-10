@@ -15,9 +15,13 @@ RoArm:   real
 Target:  tissue_pack
 ```
 
-The current geometry, workspace, distance thresholds, and grasp offsets are
-hardware-tuned values. Do not alter them as part of an unrelated code change.
-The current operator-selected planner Y compensation is `-15 mm`.
+The current geometry, workspace, distance thresholds, and command calibration
+are hardware-tuned values. Do not alter them as part of an unrelated code
+change. The former planner-only `-15 mm` Y compensation is now `0 mm`; its
+effect is included in the measured two-dimensional command model and must not
+be applied a second time. After the first successful real grasp, the planner
+applies a bounded `grasp_x_offset_mm: +10` fine-tune toward the arm base. This
+post-calibration adjustment does not alter the raw target or fitted model.
 
 ## No-hardware validation
 
@@ -55,12 +59,26 @@ cd /workspace/src
 Real RoArm mode requires the exact typed confirmation phrase before the serial
 port is opened. The process remains limited to one grasp.
 
+Before the first real run, exercise the calibrated coordinates with real
+Camera/RPLIDAR data and a Mock RoArm:
+
+```bash
+./run_modular_pipeline.sh configs/calibrated_plan_only.yaml
+```
+
+After `s` completes, inspect both `t` and `g`. Near the measured P12 anchor,
+`t` should retain a corrected target close to `[-380, -20, -100] mm`, while
+the `g` grasp waypoint should have X increased by `10 mm` (approximately
+`[-370, -20, -100] mm`). The plan-only profile never opens `/dev/ttyROARM`
+and skips startup home.
+
 ## Structured run records
 
 Every terminal real-pipeline run appends JSONL and CSV under
 `/workspace/logs/experiments/`. The record includes the merged configuration,
-Git commit, sensor observations, recheck deltas, target poses, four waypoints,
-execution result, duration, and failure information.
+Git commit, sensor observations, recheck deltas, the raw `target_base_link`,
+nominal and calibrated arm targets, four waypoints, execution result, duration,
+and failure information.
 
 For localization measurements without arm motion, use:
 

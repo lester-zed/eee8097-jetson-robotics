@@ -1,14 +1,15 @@
 # Calibration capture and experiment logging
 
-This stage turns the current real-hardware grasp prototype into a measurable
-baseline. It does not replace the current geometry or tune another physical
-parameter.
+This stage captures a raw measurable baseline. The committed real profile now
+contains a separate measured arm-command calibration, while this capture path
+keeps that model disabled so future data cannot be corrected by the model it
+is intended to evaluate.
 
 ## Safety boundary
 
-`configs/calibration_capture.yaml` inherits the current Camera, RPLIDAR, and
-planner settings from `modular_pipeline.yaml`, including the current
-`grasp_y_offset_mm: -15.0`, then enforces:
+`configs/calibration_capture.yaml` inherits the current Camera and RPLIDAR
+settings from `modular_pipeline.yaml`, disables
+`localization.command_calibration`, and enforces:
 
 ```text
 Camera:  REAL
@@ -21,9 +22,9 @@ open `/dev/ttyROARM`, and cannot construct the real RoArm adapter. The RPLIDAR
 does rotate and the Camera/YOLO stream is live. Keep the target and cables clear
 of the scanner.
 
-The target coordinates used for calibration are recorded before the planner's
-Y-offset compensation, so the retained `-15 mm` grasp adjustment does not bias
-the localization error calculation.
+The target coordinates used for calibration are recorded before planning.
+`grasp_y_offset_mm` is now zero, so no second Y-only correction can bias the
+measurement.
 
 ## Validate without opening devices
 
@@ -93,7 +94,9 @@ JSONL is the source of truth. Each run contains:
 - Camera/LiDAR/RoArm modes;
 - YOLO label, confidence, bbox and centre;
 - LiDAR distance, bearings, sample count, MAD and range span;
-- target coordinates in `base_link` and `arm_base`;
+- raw target coordinates in `base_link` and the planner-facing target in
+  `arm_base`; calibrated real runs also include nominal and corrected arm
+  coordinates in target metadata;
 - pre-execution Camera/range/target shifts;
 - all four planned waypoints and the retained grasp Y offset;
 - execution result, pipeline error, failure type and recording error;
@@ -135,10 +138,12 @@ python3 tools/annotate_experiment.py \
 The annotation atomically updates the JSONL record and regenerates the CSV.
 Do not run annotation while another process is writing the same log.
 
-## Acceptance threshold for the next PR
+## Result of the 2026-08-10 grid
 
-Do not edit the main hardware calibration from a single sample. First collect
-27 successful no-motion observations, inspect failures, and report overall plus
-per-point errors. Apply measured geometry in a separate
-`fix/apply-measured-calibration` PR so code infrastructure and physical
-parameters remain independently reviewable.
+Session `grid-20260810T012159Z-6a598d` completed 27/27 observations. The entered
+coordinates were clarified as operator-established RoArm gripper-centre
+commands, anchored at `[-380, -20, -100] mm`, rather than independent world
+survey points. The fitted affine model therefore belongs between the nominal
+arm transform and the planner. It is applied in a separate
+`fix/apply-measured-command-calibration` change, with the raw-capture profile
+remaining uncorrected.

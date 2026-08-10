@@ -16,7 +16,7 @@ camera:
   index: 0
 
   model_path: /workspace/models/tissue_pack_yolov8n_v1.pt
-  confidence: 0.55
+  confidence: 0.80
   stable_frames: 3
   stability_tolerance_px: 40
   imgsz: 640
@@ -57,7 +57,8 @@ lidar:
   mock_distance_mm: 350.0
 
 localization:
-  # RPLIDAR only provides X/Y. Z is a configured grasp-point height.
+  # RPLIDAR only provides X/Y. The operator-established gripper-centre command
+  # for the tissue package uses Z=-110 mm.
   target_z_mm: -110.0
 
   # Approve only after checking several physically measured X/Y target positions.
@@ -65,6 +66,55 @@ localization:
 
   # Separate approval for the configured grasp Z. Real mode requires both flags.
   target_z_approved: true
+
+  # End-to-end mapping from the raw nominal arm target to the RoArm command that
+  # places the gripper at the tissue-package centre. Fitted from 9 positions x
+  # 3 repeats in session grid-20260810T012159Z-6a598d.
+  command_calibration:
+    enabled: true
+    model: affine_xy
+    calibration_id: tissue-command-grid-20260810-v1
+    x_coefficients: [1.27216682, 0.01445898, 83.15405484]
+    y_coefficients: [-0.16907799, 1.12365137, -76.94479474]
+    require_translation_corrected_lidar: true
+
+    # Training extrema plus a small guard margin. Targets outside either box
+    # fail during localization before a motion plan can execute.
+    input_bounds_mm:
+      min_x_mm: -417.5
+      max_x_mm: -320.0
+      min_y_mm: -40.5
+      max_y_mm: 30.0
+    output_bounds_mm:
+      min_x_mm: -445.0
+      max_x_mm: -330.0
+      min_y_mm: -70.0
+      max_y_mm: 30.0
+
+    source:
+      session_id: grid-20260810T012159Z-6a598d
+      sample_count: 27
+      command_anchor_mm: [-380.0, -20.0, -100.0]
+      training_planar_rmse_mm: 1.0791
+      grouped_leave_one_point_out_rmse_mm: 1.5721
+      grouped_leave_one_point_out_max_error_mm: 2.8613
+      source_git_commit: 374f5e53e12d8f466a6904184ba6dc124520a314
+      source_config_sha256: c7172b28d90a4328b8ce2c3ecb3f335a2641b86815f59caa83c1c289005ccd33
+
+    # The fitted model is valid only while these geometric inputs remain
+    # identical. Config loading fails closed if one changes accidentally.
+    expected_inputs:
+      app_target: tissue_pack
+      target_z_mm: -110.0
+      camera_fx_px: 900.0
+      camera_cx_px: 320.0
+      camera_origin_in_base_mm: [-260.0, 0.0, -70.0]
+      camera_yaw_in_base_deg: 180.0
+      lidar_origin_in_base_mm: [-260.0, 0.0, -100.0]
+      lidar_front_angle_deg: 180.0
+      lidar_angle_sign: 1
+      arm_origin_in_base_mm: [0.0, 0.0, 0.0]
+      arm_yaw_in_base_deg: 0.0
 
 arm_mount:
   origin_in_base_mm: [0.0, 0.0, 0.0]
@@ -75,7 +125,14 @@ planner:
   pregrasp_height_mm: 300.0
   lift_height_mm: 200.0
 
-  grasp_y_offset_mm: -15.0
+  # First real-grasp fine-tune (2026-08-10): the gripper landed on the far side
+  # of the tissue-package centre. Positive X moves 10 mm back toward the arm.
+  # This is applied after command calibration and is limited to +/-30 mm.
+  grasp_x_offset_mm: 10.0
+
+  # The affine command calibration already includes the measured Y correction.
+  # This must stay zero to avoid applying the former -15 mm compensation twice.
+  grasp_y_offset_mm: 0.0
 
   tool_angle_rad: 3.14
   cartesian_speed: 0.15
@@ -174,6 +231,6 @@ manual_arm_test:
 
   waypoints:
     pregrasp: [-310, -5, 230]
-    grasp:    [-380, -20, -100]
+    grasp:    [-320, -20, -110]
     lift:     [-350, -5, 100]
     retreat:  [-310, -5, 230]

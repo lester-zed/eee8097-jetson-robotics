@@ -24,7 +24,7 @@ pipeline. There is no second application state machine.
 | Experiment records | `experiments/`, `tools/calibration_*.py` | JSONL/CSV capture, annotation, metrics |
 | Vision | `vision/yolo_camera.py`, `vision/yolo_camera_adapter.py` | model inference and stable detections |
 | Ranging | `lidar/range_sensor.py`, `lidar/rplidar_distance.py` | target-sector selection and scan filtering |
-| Localization | `localization/target_localizer.py`, `localization/transforms.py` | Camera/LiDAR/base/arm mapping |
+| Localization | `localization/target_localizer.py`, `localization/transforms.py`, `localization/command_calibration.py` | Camera/LiDAR/base/arm mapping and bounded command correction |
 | Planning | `planning/grasp_planner.py` | workspace and grasp waypoints |
 | Arm execution | `arm_control/cartesian_roarm_controller.py`, `roarm_uart.py` | T=104/T=105/T=106 behavior |
 | Hardware profile | `configs/modular_pipeline.yaml` | measured physical parameters only |

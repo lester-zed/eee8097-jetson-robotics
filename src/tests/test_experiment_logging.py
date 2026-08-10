@@ -51,8 +51,11 @@ class CalibrationProfileTests(unittest.TestCase):
         self.assertEqual(config.get("arm", "mode"), "mock")
         self.assertFalse(config.get("arm", "allow_real_motion"))
         self.assertFalse(config.get("manual_arm_test", "enabled"))
-        self.assertEqual(config.get("planner", "grasp_y_offset_mm"), -15.0)
+        self.assertEqual(config.get("planner", "grasp_y_offset_mm"), 0.0)
         self.assertFalse(config.get("localization", "calibration_approved"))
+        self.assertFalse(
+            config.get("localization", "command_calibration")["enabled"]
+        )
         self.assertEqual(
             [path.name for path in config.source_paths],
             ["modular_pipeline.yaml", "calibration_capture.yaml"],
@@ -118,6 +121,17 @@ class CalibrationProfileTests(unittest.TestCase):
         data["arm"]["mode"] = "real"
         config = RuntimeConfig(loaded.path, data, loaded.source_paths)
         with self.assertRaises(ConfigError):
+            validate_no_motion_calibration_profile(config)
+
+    def test_no_motion_validator_rejects_fitted_command_model(self) -> None:
+        loaded = load_runtime_config(CALIBRATION_CONFIG)
+        data = copy.deepcopy(loaded.data)
+        data["localization"]["command_calibration"]["enabled"] = True
+        config = RuntimeConfig(loaded.path, data, loaded.source_paths)
+        with self.assertRaisesRegex(
+            ConfigError,
+            "must disable the fitted arm-command model",
+        ):
             validate_no_motion_calibration_profile(config)
 
 
@@ -236,7 +250,7 @@ class ExperimentRecorderTests(unittest.TestCase):
                         ("pregrasp", "grasp", "lift", "retreat"), start=1
                     )
                 ],
-                "metadata": {"grasp_y_offset_mm": -15.0},
+                "metadata": {"grasp_y_offset_mm": 0.0},
             },
             "execution": {
                 "success": True,
@@ -273,7 +287,7 @@ class ExperimentRecorderTests(unittest.TestCase):
                 (125.0) ** 0.5,
             )
             self.assertEqual(record["modes"]["arm"], "mock")
-            self.assertEqual(record["config"]["planner"]["grasp_y_offset_mm"], -15.0)
+            self.assertEqual(record["config"]["planner"]["grasp_y_offset_mm"], 0.0)
 
             loaded = load_jsonl_records(recorder.jsonl_path)
             self.assertEqual(len(loaded), 1)
@@ -281,7 +295,7 @@ class ExperimentRecorderTests(unittest.TestCase):
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["point_id"], "P11")
-            self.assertEqual(rows[0]["grasp_y_offset_mm"], "-15.0")
+            self.assertEqual(rows[0]["grasp_y_offset_mm"], "0.0")
 
     def test_annotation_rewrites_jsonl_and_csv_consistently(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

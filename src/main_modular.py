@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from adapters.mock_devices import MockArmAdapter, MockRangeSensorAdapter, MockVisionAdapter
 from configuration.loader import RuntimeConfig, load_runtime_config
+from localization.command_calibration import AffineXYCommandCalibration
 from localization.target_localizer import PlanarTargetLocalizer
 from localization.transforms import ExistingArmMountTransformAdapter
 from pipeline.task_manager import ModularTaskManager
@@ -141,11 +142,22 @@ def build_manager(
     )
     execution_calibration_ready = calibration_approved and target_z_approved
 
+    command_calibration_cfg = localization_cfg.get("command_calibration", {})
+    arm_command_calibration = None
+    if (
+        isinstance(command_calibration_cfg, dict)
+        and bool(command_calibration_cfg.get("enabled", False))
+    ):
+        arm_command_calibration = AffineXYCommandCalibration.from_mapping(
+            command_calibration_cfg
+        )
+
     localizer = PlanarTargetLocalizer(
         base_to_arm=transform,
         target_z_mm=float(localization_cfg.get("target_z_mm", 140.0)),
         calibration_approved=calibration_approved,
         target_z_approved=target_z_approved,
+        arm_command_calibration=arm_command_calibration,
     )
 
     limits = WorkspaceLimits(**{
@@ -159,6 +171,7 @@ def build_manager(
         approach_distance_mm=float(planner_cfg.get("approach_distance_mm", 80.0)),
         pregrasp_height_mm=float(planner_cfg.get("pregrasp_height_mm", 60.0)),
         lift_height_mm=float(planner_cfg.get("lift_height_mm", 100.0)),
+        grasp_x_offset_mm=float(planner_cfg.get("grasp_x_offset_mm", 0.0)),
         grasp_y_offset_mm=float(planner_cfg.get("grasp_y_offset_mm", 0.0)),
         tool_angle_rad=float(planner_cfg.get("tool_angle_rad", 3.14)),
         speed=float(planner_cfg.get("cartesian_speed", 0.15)),
@@ -264,6 +277,23 @@ def main() -> int:
     print(f"Camera: {str(camera_mode).upper()}")
     print(f"RPLIDAR: {str(lidar_mode).upper()}")
     print(f"RoArm: {str(arm_mode).upper()}")
+    command_calibration_cfg = config.section("localization").get(
+        "command_calibration", {}
+    )
+    if (
+        isinstance(command_calibration_cfg, dict)
+        and bool(command_calibration_cfg.get("enabled", False))
+    ):
+        print(
+            "RoArm command calibration: "
+            f"{command_calibration_cfg.get('calibration_id')}"
+        )
+        print(
+            "Command target Z / planner X/Y offsets: "
+            f"{config.get('localization', 'target_z_mm')} mm / "
+            f"{config.get('planner', 'grasp_x_offset_mm', 0.0)} mm / "
+            f"{config.get('planner', 'grasp_y_offset_mm')} mm"
+        )
     if recorder is not None:
         print(f"Experiment JSONL: {recorder.jsonl_path}")
         print(f"Experiment CSV:   {recorder.csv_path}")

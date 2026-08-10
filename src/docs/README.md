@@ -19,7 +19,8 @@ requests instead of version-numbered files in the runtime tree.
   isolated Cartesian and coordinate validation.
 - [`TISSUE_DATASET_CAPTURE.md`](TISSUE_DATASET_CAPTURE.md): image collection.
 - [`CALIBRATION_AND_EXPERIMENT_LOGGING.md`](CALIBRATION_AND_EXPERIMENT_LOGGING.md):
-  no-motion 3 x 3 capture, structured logs, annotation, and error statistics.
+  no-motion 3 x 3 capture, measured command-model result, structured logs,
+  annotation, and error statistics.
 
 ## Documentation rule
 

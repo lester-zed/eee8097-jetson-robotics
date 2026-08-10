@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +83,18 @@ class RuntimeConfig:
         self.vector3("lidar", "origin_in_base_mm")
         self.vector3("arm_mount", "origin_in_base_mm")
 
+        planner_offsets: dict[str, float] = {}
+        for key in ("grasp_x_offset_mm", "grasp_y_offset_mm"):
+            try:
+                offset = float(self.get("planner", key, 0.0))
+            except (TypeError, ValueError) as exc:
+                raise ConfigError(f"planner.{key} must be finite") from exc
+            if not math.isfinite(offset):
+                raise ConfigError(f"planner.{key} must be finite")
+            if abs(offset) > 30.0:
+                raise ConfigError(f"planner.{key} magnitude must be <= 30 mm")
+            planner_offsets[key] = offset
+
         for key, default in (
             ("recheck_timeout_s", 8.0),
             ("max_recheck_center_shift_px", 60.0),
@@ -105,6 +118,114 @@ class RuntimeConfig:
                 raise ConfigError(
                     "arm.mode=real requires localization.target_z_approved=true"
                 )
+
+        localization = self.section("localization")
+        command_calibration = localization.get("command_calibration")
+        command_calibration_enabled = False
+        if command_calibration is not None:
+            if not isinstance(command_calibration, dict):
+                raise ConfigError(
+                    "localization.command_calibration must be a mapping"
+                )
+            command_calibration_enabled = bool(
+                command_calibration.get("enabled", False)
+            )
+            if command_calibration_enabled:
+                try:
+                    from localization.command_calibration import (
+                        AffineXYCommandCalibration,
+                    )
+
+                    AffineXYCommandCalibration.from_mapping(command_calibration)
+                except (TypeError, ValueError) as exc:
+                    raise ConfigError(str(exc)) from exc
+
+                grasp_y_offset_mm = planner_offsets["grasp_y_offset_mm"]
+                if abs(grasp_y_offset_mm) > 1e-9:
+                    raise ConfigError(
+                        "measured command calibration requires "
+                        "planner.grasp_y_offset_mm=0 to prevent double compensation"
+                    )
+
+                expected = command_calibration.get("expected_inputs")
+                if not isinstance(expected, dict):
+                    raise ConfigError(
+                        "enabled command calibration requires expected_inputs"
+                    )
+                actual_inputs: dict[str, Any] = {
+                    "app_target": self.get("app", "target"),
+                    "target_z_mm": float(
+                        self.get("localization", "target_z_mm")
+                    ),
+                    "camera_fx_px": float(self.get("camera", "fx_px")),
+                    "camera_cx_px": float(self.get("camera", "cx_px")),
+                    "camera_origin_in_base_mm": list(
+                        self.vector3("camera", "origin_in_base_mm")
+                    ),
+                    "camera_yaw_in_base_deg": float(
+                        self.get("camera", "yaw_in_base_deg", 0.0)
+                    ),
+                    "lidar_origin_in_base_mm": list(
+                        self.vector3("lidar", "origin_in_base_mm")
+                    ),
+                    "lidar_front_angle_deg": float(
+                        self.get("lidar", "front_angle_deg", 0.0)
+                    ),
+                    "lidar_angle_sign": int(
+                        self.get("lidar", "angle_sign", 1)
+                    ),
+                    "arm_origin_in_base_mm": list(
+                        self.vector3("arm_mount", "origin_in_base_mm")
+                    ),
+                    "arm_yaw_in_base_deg": float(
+                        self.get("arm_mount", "yaw_in_base_deg", 0.0)
+                    ),
+                }
+                for key, actual in actual_inputs.items():
+                    if key not in expected:
+                        raise ConfigError(
+                            "command calibration expected_inputs is missing " + key
+                        )
+                    wanted = expected[key]
+                    if isinstance(actual, list):
+                        try:
+                            matches = len(wanted) == len(actual) and all(
+                                math.isclose(
+                                    float(left),
+                                    float(right),
+                                    rel_tol=0.0,
+                                    abs_tol=1e-9,
+                                )
+                                for left, right in zip(actual, wanted)
+                            )
+                        except (TypeError, ValueError):
+                            matches = False
+                    elif isinstance(actual, str):
+                        matches = str(wanted) == actual
+                    else:
+                        try:
+                            matches = math.isclose(
+                                float(actual),
+                                float(wanted),
+                                rel_tol=0.0,
+                                abs_tol=1e-9,
+                            )
+                        except (TypeError, ValueError):
+                            matches = False
+                    if not matches:
+                        raise ConfigError(
+                            "command calibration input mismatch for "
+                            f"{key}: expected {wanted!r}, received {actual!r}"
+                        )
+
+        if (
+            str(self.get("arm", "mode")).lower() == "real"
+            and not command_calibration_enabled
+        ):
+            raise ConfigError(
+                "arm.mode=real requires the measured "
+                "localization.command_calibration to be enabled"
+            )
 
         experiment = self.data.get("experiment")
         if experiment is not None:
