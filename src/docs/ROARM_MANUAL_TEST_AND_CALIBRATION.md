@@ -59,11 +59,16 @@ arm_mount:
   yaw_in_base_deg: 0.0
 
 localization:
-  target_z_mm: -110.0
+  target_z_mm: -100.0
   calibration_approved: true
   target_z_approved: true
+
+planner:
+  grasp_y_offset_mm: 0.0
 ```
 
-RPLIDAR C1 supplies planar position only. `target_z_mm` must remain a physically
-measured grasp height. Revoke the two approval flags before experimenting with
-new geometry.
+RPLIDAR C1 supplies planar position only. The current `-100 mm` is the
+operator-established tissue-package gripper-centre command. The main pipeline
+also applies `tissue-command-grid-20260810-v1` to X/Y before planning; the
+former `-15 mm` Y-only offset must remain zero. Revoke the two approval flags
+before experimenting with new geometry.

@@ -9,7 +9,7 @@ The current real-hardware pipeline is:
 YOLO detection
   -> camera-guided RPLIDAR ranging
   -> base_link target localization
-  -> arm_base transform
+  -> measured arm-command calibration
   -> four-waypoint grasp planning
   -> feedback-verified RoArm execution
 ```
@@ -20,6 +20,10 @@ YOLO detection
 - The real one-grasp path is implemented with a pre-execution sensor recheck.
 - Every terminal pipeline run is recorded as structured JSONL and CSV.
 - A Real Camera + Real RPLIDAR + Mock Arm calibration capture path is available.
+- A 27-sample affine command calibration maps the raw target to the measured
+  RoArm gripper-centre command while preserving both coordinates in run logs.
+- A calibrated plan-only profile uses the real sensors with a Mock RoArm before
+  the one-grasp real-hardware run.
 - RoArm joint self-test, custom home, manual Cartesian test, and boot health checks are available.
 - ROS 2, URDF/TF2, MoveIt 2, Gazebo, and Sim2Real evaluation are the next development stage.
 
@@ -41,6 +45,7 @@ YOLO detection
 | Dataset capture | `src/run_tissue_capture.sh` |
 | No-motion calibration capture | `src/run_calibration_capture.sh` |
 | Calibration/experiment report | `src/run_calibration_report.sh` |
+| Calibrated plan-only profile | `src/configs/calibrated_plan_only.yaml` |
 
 Legacy parallel entry points have been removed. New features should extend the
 modular pipeline rather than introduce another top-level controller.
@@ -52,7 +57,7 @@ Inside the existing Docker container:
 ```bash
 cd /workspace/src
 
-# Configuration, compile checks, and all no-hardware unit tests (46 tests)
+# Configuration, compile checks, and all no-hardware unit tests (62 tests)
 ./test_modular_pipeline.sh
 
 # Validate the committed real-hardware YAML without opening devices
@@ -69,6 +74,13 @@ Run the real pipeline only after the health check and workspace inspection:
 ```bash
 cd /workspace/src
 ./run_modular_pipeline.sh
+```
+
+Before the first calibrated real grasp, run the same perception and planning
+path with no arm motion:
+
+```bash
+./run_modular_pipeline.sh configs/calibrated_plan_only.yaml
 ```
 
 ## Repository layout
