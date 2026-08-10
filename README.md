@@ -24,6 +24,8 @@ YOLO detection
   RoArm gripper-centre command while preserving both coordinates in run logs.
 - A calibrated plan-only profile uses the real sensors with a Mock RoArm before
   the one-grasp real-hardware run.
+- The first successful real grasp adds a bounded `+10 mm` post-calibration X
+  fine-tune so the gripper moves back toward the tissue-package centre.
 - RoArm joint self-test, custom home, manual Cartesian test, and boot health checks are available.
 - ROS 2, URDF/TF2, MoveIt 2, Gazebo, and Sim2Real evaluation are the next development stage.
 
@@ -57,7 +59,7 @@ Inside the existing Docker container:
 ```bash
 cd /workspace/src
 
-# Configuration, compile checks, and all no-hardware unit tests (63 tests)
+# Configuration, compile checks, and all no-hardware unit tests (64 tests)
 ./test_modular_pipeline.sh
 
 # Validate the committed real-hardware YAML without opening devices

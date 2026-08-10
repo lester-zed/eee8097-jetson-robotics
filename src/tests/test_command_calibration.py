@@ -147,6 +147,7 @@ class CalibratedLocalizerTests(unittest.TestCase):
             approach_distance_mm=80.0,
             pregrasp_height_mm=300.0,
             lift_height_mm=200.0,
+            grasp_x_offset_mm=10.0,
             grasp_y_offset_mm=0.0,
             limits=WorkspaceLimits(
                 min_x_mm=-430.0,
@@ -180,9 +181,10 @@ class CalibratedLocalizerTests(unittest.TestCase):
 
         plan = self._runtime_planner().plan(target)
         grasp = plan.waypoint("grasp").point
-        self.assertAlmostEqual(grasp.x_mm, target.target_arm_base.x_mm)
+        self.assertAlmostEqual(grasp.x_mm, target.target_arm_base.x_mm + 10.0)
         self.assertAlmostEqual(grasp.y_mm, target.target_arm_base.y_mm)
         self.assertAlmostEqual(grasp.z_mm, target.target_arm_base.z_mm)
+        self.assertEqual(plan.metadata["grasp_x_offset_mm"], 10.0)
 
     def test_far_calibration_row_remains_blocked_by_real_workspace(self) -> None:
         target = self._localizer().localize(
@@ -190,7 +192,9 @@ class CalibratedLocalizerTests(unittest.TestCase):
             _measurement(-411.02263265, -10.95571418),
         )
         self.assertLess(target.target_arm_base.x_mm, -430.0)
-        with self.assertRaisesRegex(ValueError, "grasp X outside workspace"):
+        with self.assertRaisesRegex(
+            ValueError, "calibrated target X outside workspace"
+        ):
             self._runtime_planner().plan(target)
 
     def test_bearing_only_fallback_is_rejected_for_real_command_model(self) -> None:
@@ -211,6 +215,14 @@ class CommandCalibrationConfigurationTests(unittest.TestCase):
             config.get("localization", "command_calibration")["enabled"]
         )
         self.assertFalse(config.get("arm", "allow_real_motion"))
+        self.assertEqual(config.get("planner", "grasp_x_offset_mm"), 10.0)
+
+    def test_x_fine_tune_is_bounded(self) -> None:
+        loaded = load_runtime_config(CONFIG_PATH)
+        data = copy.deepcopy(loaded.data)
+        data["planner"]["grasp_x_offset_mm"] = 31.0
+        with self.assertRaisesRegex(ConfigError, "magnitude must be <= 30 mm"):
+            RuntimeConfig(loaded.path, data, loaded.source_paths).validate()
 
     def test_raw_capture_profile_disables_fitted_model(self) -> None:
         config = load_runtime_config(CAPTURE_PATH)

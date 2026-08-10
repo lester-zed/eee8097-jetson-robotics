@@ -18,7 +18,7 @@ class WorkspaceLimits:
 
 
 class SimpleTopDownGraspPlanner:
-    """Radial pregrasp planner with explicit arm-frame Y grasp compensation."""
+    """Radial pregrasp planner with explicit post-calibration XY fine-tuning."""
 
     def __init__(
         self,
@@ -26,6 +26,7 @@ class SimpleTopDownGraspPlanner:
         approach_distance_mm: float = 80.0,
         pregrasp_height_mm: float = 60.0,
         lift_height_mm: float = 100.0,
+        grasp_x_offset_mm: float = 0.0,
         grasp_y_offset_mm: float = 0.0,
         tool_angle_rad: float = 3.14,
         speed: float = 0.15,
@@ -35,12 +36,19 @@ class SimpleTopDownGraspPlanner:
     ) -> None:
         if approach_distance_mm <= 0.0:
             raise ValueError("approach_distance_mm must be positive")
-        if not math.isfinite(float(grasp_y_offset_mm)):
-            raise ValueError("grasp_y_offset_mm must be finite")
+        for name, value in (
+            ("grasp_x_offset_mm", grasp_x_offset_mm),
+            ("grasp_y_offset_mm", grasp_y_offset_mm),
+        ):
+            if not math.isfinite(float(value)):
+                raise ValueError(f"{name} must be finite")
+            if abs(float(value)) > 30.0:
+                raise ValueError(f"{name} magnitude must be <= 30 mm")
 
         self.approach_distance_mm = float(approach_distance_mm)
         self.pregrasp_height_mm = float(pregrasp_height_mm)
         self.lift_height_mm = float(lift_height_mm)
+        self.grasp_x_offset_mm = float(grasp_x_offset_mm)
         self.grasp_y_offset_mm = float(grasp_y_offset_mm)
         self.tool_angle_rad = float(tool_angle_rad)
         self.speed = float(speed)
@@ -53,11 +61,16 @@ class SimpleTopDownGraspPlanner:
         if measured_target.frame_id != "arm_base":
             raise ValueError("grasp planning requires an arm_base target")
 
-        # Perception/localization remains untouched. The compensation is applied
-        # only to commanded Cartesian arm waypoints so the measured object pose
-        # and the experimentally corrected grasp pose remain distinguishable.
+        # A fine-tune must never pull an otherwise forbidden calibrated target
+        # back inside the workspace. Validate the model output first so the
+        # measured-domain and real-motion boundaries remain fail-closed.
+        self._validate_point("calibrated target", measured_target)
+
+        # Perception and the fitted command calibration remain untouched. These
+        # small operator fine-tunes apply only to Cartesian arm waypoints, so a
+        # physical grasp correction cannot contaminate the 27-sample model.
         grasp = Point3D(
-            measured_target.x_mm,
+            measured_target.x_mm + self.grasp_x_offset_mm,
             measured_target.y_mm + self.grasp_y_offset_mm,
             measured_target.z_mm,
             "arm_base",
@@ -114,9 +127,10 @@ class SimpleTopDownGraspPlanner:
             gripper_open_rad=self.gripper_open_rad,
             gripper_closed_rad=self.gripper_closed_rad,
             metadata={
-                "planner": "radial_top_down_y_offset_v3",
+                "planner": "radial_top_down_xy_offset_v4",
                 "requires_collision_validation": True,
                 "firmware_t104_performs_inverse_kinematics": True,
+                "grasp_x_offset_mm": self.grasp_x_offset_mm,
                 "grasp_y_offset_mm": self.grasp_y_offset_mm,
                 "measured_target_arm_base": measured_target.to_dict(),
                 "commanded_grasp_arm_base": grasp.to_dict(),

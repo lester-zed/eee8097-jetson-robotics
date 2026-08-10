@@ -19,7 +19,9 @@ The current geometry, workspace, distance thresholds, and command calibration
 are hardware-tuned values. Do not alter them as part of an unrelated code
 change. The former planner-only `-15 mm` Y compensation is now `0 mm`; its
 effect is included in the measured two-dimensional command model and must not
-be applied a second time.
+be applied a second time. After the first successful real grasp, the planner
+applies a bounded `grasp_x_offset_mm: +10` fine-tune toward the arm base. This
+post-calibration adjustment does not alter the raw target or fitted model.
 
 ## No-hardware validation
 
@@ -64,9 +66,11 @@ Camera/RPLIDAR data and a Mock RoArm:
 ./run_modular_pipeline.sh configs/calibrated_plan_only.yaml
 ```
 
-After `s` completes, inspect `t` and `g`. Near the measured P12 anchor, the
-corrected target should be close to `[-380, -20, -100] mm`. The plan-only
-profile never opens `/dev/ttyROARM` and skips startup home.
+After `s` completes, inspect both `t` and `g`. Near the measured P12 anchor,
+`t` should retain a corrected target close to `[-380, -20, -100] mm`, while
+the `g` grasp waypoint should have X increased by `10 mm` (approximately
+`[-370, -20, -100] mm`). The plan-only profile never opens `/dev/ttyROARM`
+and skips startup home.
 
 ## Structured run records
 

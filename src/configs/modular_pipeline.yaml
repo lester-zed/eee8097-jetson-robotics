@@ -125,6 +125,11 @@ planner:
   pregrasp_height_mm: 300.0
   lift_height_mm: 200.0
 
+  # First real-grasp fine-tune (2026-08-10): the gripper landed on the far side
+  # of the tissue-package centre. Positive X moves 10 mm back toward the arm.
+  # This is applied after command calibration and is limited to +/-30 mm.
+  grasp_x_offset_mm: 10.0
+
   # The affine command calibration already includes the measured Y correction.
   # This must stay zero to avoid applying the former -15 mm compensation twice.
   grasp_y_offset_mm: 0.0

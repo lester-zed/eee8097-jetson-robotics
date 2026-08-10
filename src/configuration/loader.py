@@ -83,6 +83,18 @@ class RuntimeConfig:
         self.vector3("lidar", "origin_in_base_mm")
         self.vector3("arm_mount", "origin_in_base_mm")
 
+        planner_offsets: dict[str, float] = {}
+        for key in ("grasp_x_offset_mm", "grasp_y_offset_mm"):
+            try:
+                offset = float(self.get("planner", key, 0.0))
+            except (TypeError, ValueError) as exc:
+                raise ConfigError(f"planner.{key} must be finite") from exc
+            if not math.isfinite(offset):
+                raise ConfigError(f"planner.{key} must be finite")
+            if abs(offset) > 30.0:
+                raise ConfigError(f"planner.{key} magnitude must be <= 30 mm")
+            planner_offsets[key] = offset
+
         for key, default in (
             ("recheck_timeout_s", 8.0),
             ("max_recheck_center_shift_px", 60.0),
@@ -128,11 +140,7 @@ class RuntimeConfig:
                 except (TypeError, ValueError) as exc:
                     raise ConfigError(str(exc)) from exc
 
-                grasp_y_offset_mm = float(
-                    self.get("planner", "grasp_y_offset_mm", 0.0)
-                )
-                if not math.isfinite(grasp_y_offset_mm):
-                    raise ConfigError("planner.grasp_y_offset_mm must be finite")
+                grasp_y_offset_mm = planner_offsets["grasp_y_offset_mm"]
                 if abs(grasp_y_offset_mm) > 1e-9:
                     raise ConfigError(
                         "measured command calibration requires "

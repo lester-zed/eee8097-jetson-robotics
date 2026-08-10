@@ -171,6 +171,7 @@ def build_manager(
         approach_distance_mm=float(planner_cfg.get("approach_distance_mm", 80.0)),
         pregrasp_height_mm=float(planner_cfg.get("pregrasp_height_mm", 60.0)),
         lift_height_mm=float(planner_cfg.get("lift_height_mm", 100.0)),
+        grasp_x_offset_mm=float(planner_cfg.get("grasp_x_offset_mm", 0.0)),
         grasp_y_offset_mm=float(planner_cfg.get("grasp_y_offset_mm", 0.0)),
         tool_angle_rad=float(planner_cfg.get("tool_angle_rad", 3.14)),
         speed=float(planner_cfg.get("cartesian_speed", 0.15)),
@@ -288,8 +289,9 @@ def main() -> int:
             f"{command_calibration_cfg.get('calibration_id')}"
         )
         print(
-            "Command target Z / planner Y offset: "
+            "Command target Z / planner X/Y offsets: "
             f"{config.get('localization', 'target_z_mm')} mm / "
+            f"{config.get('planner', 'grasp_x_offset_mm', 0.0)} mm / "
             f"{config.get('planner', 'grasp_y_offset_mm')} mm"
         )
     if recorder is not None:
