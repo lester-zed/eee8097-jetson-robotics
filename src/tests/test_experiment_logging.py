@@ -123,6 +123,17 @@ class CalibrationProfileTests(unittest.TestCase):
         with self.assertRaises(ConfigError):
             validate_no_motion_calibration_profile(config)
 
+    def test_no_motion_validator_rejects_fitted_command_model(self) -> None:
+        loaded = load_runtime_config(CALIBRATION_CONFIG)
+        data = copy.deepcopy(loaded.data)
+        data["localization"]["command_calibration"]["enabled"] = True
+        config = RuntimeConfig(loaded.path, data, loaded.source_paths)
+        with self.assertRaisesRegex(
+            ConfigError,
+            "must disable the fitted arm-command model",
+        ):
+            validate_no_motion_calibration_profile(config)
+
 
 class TaskCompletionCallbackTests(unittest.TestCase):
     def _manager(self, callback) -> ModularTaskManager:

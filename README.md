@@ -57,7 +57,7 @@ Inside the existing Docker container:
 ```bash
 cd /workspace/src
 
-# Configuration, compile checks, and all no-hardware unit tests (62 tests)
+# Configuration, compile checks, and all no-hardware unit tests (63 tests)
 ./test_modular_pipeline.sh
 
 # Validate the committed real-hardware YAML without opening devices

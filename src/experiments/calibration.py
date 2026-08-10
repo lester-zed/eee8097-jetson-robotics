@@ -30,6 +30,15 @@ def validate_no_motion_calibration_profile(config: RuntimeConfig) -> None:
             + ", ".join(enabled)
         )
 
+    localization = config.section("localization")
+    command_calibration = localization.get("command_calibration", {})
+    if isinstance(command_calibration, dict) and bool(
+        command_calibration.get("enabled", False)
+    ):
+        raise ConfigError(
+            "Calibration capture must disable the fitted arm-command model"
+        )
+
     experiment = config.data.get("experiment")
     if not isinstance(experiment, dict):
         raise ConfigError("Calibration capture requires experiment settings")
