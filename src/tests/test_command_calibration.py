@@ -109,12 +109,22 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
         self.assertEqual(corrected.z_mm, -100.0)
 
     def test_target_outside_measured_domain_is_rejected(self) -> None:
+        bounds = self.calibration.input_bounds
+    
+        outside_x = bounds.max_x_mm + 1.0
+        inside_y = (bounds.min_y_mm + bounds.max_y_mm) / 2.0
+    
         with self.assertRaisesRegex(
             CalibrationDomainError,
             "outside measured command-calibration input bounds",
         ):
             self.calibration.apply(
-                Point3D(-350.0, -20.0, -100.0, "arm_base")
+                Point3D(
+                    outside_x,
+                    inside_y,
+                    -110.0,
+                    "arm_base",
+                )
             )
 
     def test_calibration_rejects_wrong_frame(self) -> None:

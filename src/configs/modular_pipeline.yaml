@@ -16,7 +16,7 @@ camera:
   index: 0
 
   model_path: /workspace/models/tissue_pack_yolov8n_v1.pt
-  confidence: 0.55
+  confidence: 0.80
   stable_frames: 3
   stability_tolerance_px: 40
   imgsz: 640
@@ -58,8 +58,8 @@ lidar:
 
 localization:
   # RPLIDAR only provides X/Y. The operator-established gripper-centre command
-  # for the tissue package uses Z=-100 mm.
-  target_z_mm: -100.0
+  # for the tissue package uses Z=-110 mm.
+  target_z_mm: -110.0
 
   # Approve only after checking several physically measured X/Y target positions.
   calibration_approved: true
@@ -82,14 +82,14 @@ localization:
     # fail during localization before a motion plan can execute.
     input_bounds_mm:
       min_x_mm: -417.5
-      max_x_mm: -358.0
-      min_y_mm: -30.5
-      max_y_mm: 14.0
+      max_x_mm: -320.0
+      min_y_mm: -40.5
+      max_y_mm: 30.0
     output_bounds_mm:
       min_x_mm: -445.0
-      max_x_mm: -375.0
-      min_y_mm: -40.0
-      max_y_mm: 0.0
+      max_x_mm: -330.0
+      min_y_mm: -70.0
+      max_y_mm: 30.0
 
     source:
       session_id: grid-20260810T012159Z-6a598d
@@ -105,7 +105,7 @@ localization:
     # identical. Config loading fails closed if one changes accidentally.
     expected_inputs:
       app_target: tissue_pack
-      target_z_mm: -100.0
+      target_z_mm: -110.0
       camera_fx_px: 900.0
       camera_cx_px: 320.0
       camera_origin_in_base_mm: [-260.0, 0.0, -70.0]
@@ -231,6 +231,6 @@ manual_arm_test:
 
   waypoints:
     pregrasp: [-310, -5, 230]
-    grasp:    [-380, -20, -100]
+    grasp:    [-320, -20, -110]
     lift:     [-350, -5, 100]
     retreat:  [-310, -5, 230]

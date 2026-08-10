@@ -30,7 +30,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(config.get("camera", "mode"), "real")
         self.assertEqual(config.get("lidar", "mode"), "real")
         self.assertEqual(config.get("arm", "mode"), "real")
-        self.assertEqual(config.get("localization", "target_z_mm"), -100.0)
+        self.assertEqual(config.get("localization", "target_z_mm"), -110.0)
         self.assertEqual(config.get("planner", "grasp_x_offset_mm"), 10.0)
         self.assertEqual(config.get("planner", "grasp_y_offset_mm"), 0.0)
         self.assertTrue(
