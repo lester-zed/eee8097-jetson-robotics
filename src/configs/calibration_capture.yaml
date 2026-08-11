@@ -12,6 +12,11 @@ localization:
   command_calibration:
     enabled: false
 
+planner:
+  # Do not contaminate raw calibration capture with the
+  # operational post-calibration grasp fine-tune.
+  grasp_y_offset_mm: 0.0
+
 arm:
   mode: mock
   allow_real_motion: false
