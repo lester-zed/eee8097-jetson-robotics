@@ -158,7 +158,7 @@ class CalibratedLocalizerTests(unittest.TestCase):
             pregrasp_height_mm=300.0,
             lift_height_mm=200.0,
             grasp_x_offset_mm=10.0,
-            grasp_y_offset_mm=0.0,
+            grasp_y_offset_mm=-15.0,
             limits=WorkspaceLimits(
                 min_x_mm=-430.0,
                 max_x_mm=500.0,
@@ -192,9 +192,10 @@ class CalibratedLocalizerTests(unittest.TestCase):
         plan = self._runtime_planner().plan(target)
         grasp = plan.waypoint("grasp").point
         self.assertAlmostEqual(grasp.x_mm, target.target_arm_base.x_mm + 10.0)
-        self.assertAlmostEqual(grasp.y_mm, target.target_arm_base.y_mm)
+        self.assertAlmostEqual(grasp.y_mm, target.target_arm_base.y_mm - 15.0)
         self.assertAlmostEqual(grasp.z_mm, target.target_arm_base.z_mm)
         self.assertEqual(plan.metadata["grasp_x_offset_mm"], 10.0)
+        self.assertEqual(plan.metadata["grasp_y_offset_mm"], -15.0)
 
     def test_far_calibration_row_remains_blocked_by_real_workspace(self) -> None:
         target = self._localizer().localize(
@@ -239,13 +240,6 @@ class CommandCalibrationConfigurationTests(unittest.TestCase):
         self.assertFalse(
             config.get("localization", "command_calibration")["enabled"]
         )
-
-    def test_nonzero_legacy_y_offset_is_rejected(self) -> None:
-        loaded = load_runtime_config(CONFIG_PATH)
-        data = copy.deepcopy(loaded.data)
-        data["planner"]["grasp_y_offset_mm"] = -15.0
-        with self.assertRaisesRegex(ConfigError, "double compensation"):
-            RuntimeConfig(loaded.path, data, loaded.source_paths).validate()
 
     def test_changed_sensor_geometry_is_rejected(self) -> None:
         loaded = load_runtime_config(CONFIG_PATH)

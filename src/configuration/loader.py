@@ -140,12 +140,6 @@ class RuntimeConfig:
                 except (TypeError, ValueError) as exc:
                     raise ConfigError(str(exc)) from exc
 
-                grasp_y_offset_mm = planner_offsets["grasp_y_offset_mm"]
-                if abs(grasp_y_offset_mm) > 1e-9:
-                    raise ConfigError(
-                        "measured command calibration requires "
-                        "planner.grasp_y_offset_mm=0 to prevent double compensation"
-                    )
 
                 expected = command_calibration.get("expected_inputs")
                 if not isinstance(expected, dict):
