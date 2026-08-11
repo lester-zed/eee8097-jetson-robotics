@@ -16,7 +16,7 @@ camera:
   index: 0
 
   model_path: /workspace/models/tissue_pack_yolov8n_v1.pt
-  confidence: 0.80
+  confidence: 0.90
   stable_frames: 3
   stability_tolerance_px: 40
   imgsz: 640
@@ -84,12 +84,12 @@ localization:
       min_x_mm: -417.5
       max_x_mm: -320.0
       min_y_mm: -40.5
-      max_y_mm: 30.0
+      max_y_mm: 55.0
     output_bounds_mm:
       min_x_mm: -445.0
       max_x_mm: -330.0
       min_y_mm: -70.0
-      max_y_mm: 30.0
+      max_y_mm: 55.0
 
     source:
       session_id: grid-20260810T012159Z-6a598d
@@ -132,7 +132,7 @@ planner:
 
   # The affine command calibration already includes the measured Y correction.
   # This must stay zero to avoid applying the former -15 mm compensation twice.
-  grasp_y_offset_mm: 0.0
+  grasp_y_offset_mm: -15.0
 
   tool_angle_rad: 3.14
   cartesian_speed: 0.15
@@ -140,7 +140,7 @@ planner:
   gripper_closed_rad: 3.14
 
 workspace:
-  min_x_mm: -430.0
+  min_x_mm: -440.0
   max_x_mm: 500.0
   min_y_mm: -100.0
   max_y_mm: 100.0

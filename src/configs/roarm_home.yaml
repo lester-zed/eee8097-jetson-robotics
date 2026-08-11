@@ -38,8 +38,8 @@ roarm_home:
 
   motion:
     # Increased from the previous conservative 5 deg/s.
-    speed_deg_s: 20
-    acceleration_deg_s2: 25
+    speed_deg_s: 30
+    acceleration_deg_s2: 30
     timeout_s: 20.0
     poll_s: 0.25
     tolerance_deg: 5.0
