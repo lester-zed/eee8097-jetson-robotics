@@ -15,6 +15,11 @@ data/*
 models/*
 !models/.gitkeep
 
+# ROS2 / colcon
+src/ros2_ws/build/
+src/ros2_ws/install/
+src/ros2_ws/log/
+
 # VS Code
 .vscode/
 
