@@ -1,0 +1,9 @@
+float64 base_deg
+float64 shoulder_deg
+float64 elbow_deg
+float64 hand_deg
+int32 speed_deg_s
+int32 acceleration_deg_s2
+---
+bool success
+string message
