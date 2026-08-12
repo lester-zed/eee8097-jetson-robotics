@@ -7,6 +7,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -48,13 +49,13 @@ def generate_launch_description() -> LaunchDescription:
                 output="screen",
                 parameters=[
                     {
-                        "serial_port": serial_port,
-                        "baud_rate": baud_rate,
-                        "publish_rate_hz": publish_rate_hz,
-                        "response_timeout_s": response_timeout_s,
-                        "project_src": project_src,
-                        "allow_motion": allow_motion,
-                        "home_config": home_config,
+                        "serial_port": ParameterValue(serial_port, value_type=str),
+                        "baud_rate": ParameterValue(baud_rate, value_type=int),
+                        "publish_rate_hz": ParameterValue(publish_rate_hz, value_type=float),
+                        "response_timeout_s": ParameterValue(response_timeout_s, value_type=float),
+                        "project_src": ParameterValue(project_src, value_type=str),
+                        "allow_motion": ParameterValue(allow_motion, value_type=bool),
+                        "home_config": ParameterValue(home_config, value_type=str),
                     }
                 ],
             ),
