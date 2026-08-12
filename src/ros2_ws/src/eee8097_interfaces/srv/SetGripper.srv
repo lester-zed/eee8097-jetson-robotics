@@ -1,0 +1,6 @@
+float64 angle_rad
+int32 speed_steps_s
+int32 acceleration
+---
+bool success
+string message
