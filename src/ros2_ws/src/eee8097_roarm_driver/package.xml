@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>eee8097_roarm_driver</name>
-  <version>0.1.0</version>
-  <description>Read-only ROS 2 JointState bridge for the EEE8097 RoArm-M2-S.</description>
+  <version>0.2.0</version>
+  <description>ROS 2 state and guarded command bridge for the EEE8097 RoArm-M2-S.</description>
   <maintainer email="noreply@example.com">lester-zed</maintainer>
   <license>MIT</license>
 
@@ -10,6 +10,8 @@
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>eee8097_interfaces</exec_depend>
   <exec_depend>python3-serial</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
