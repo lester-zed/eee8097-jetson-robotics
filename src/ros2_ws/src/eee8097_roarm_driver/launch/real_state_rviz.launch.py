@@ -22,6 +22,8 @@ def generate_launch_description() -> LaunchDescription:
     publish_rate_hz = LaunchConfiguration("publish_rate_hz")
     response_timeout_s = LaunchConfiguration("response_timeout_s")
     project_src = LaunchConfiguration("project_src")
+    allow_motion = LaunchConfiguration("allow_motion")
+    home_config = LaunchConfiguration("home_config")
 
     return LaunchDescription(
         [
@@ -30,6 +32,8 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("publish_rate_hz", default_value="5.0"),
             DeclareLaunchArgument("response_timeout_s", default_value="2.0"),
             DeclareLaunchArgument("project_src", default_value=""),
+            DeclareLaunchArgument("allow_motion", default_value="false"),
+            DeclareLaunchArgument("home_config", default_value=""),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -49,6 +53,8 @@ def generate_launch_description() -> LaunchDescription:
                         "publish_rate_hz": publish_rate_hz,
                         "response_timeout_s": response_timeout_s,
                         "project_src": project_src,
+                        "allow_motion": allow_motion,
+                        "home_config": home_config,
                     }
                 ],
             ),
