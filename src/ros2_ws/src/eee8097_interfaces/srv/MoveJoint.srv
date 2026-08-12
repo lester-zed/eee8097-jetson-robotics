@@ -1,0 +1,7 @@
+int32 joint
+float64 angle_deg
+int32 speed_deg_s
+int32 acceleration_deg_s2
+---
+bool success
+string message
