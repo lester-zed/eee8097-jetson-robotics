@@ -107,7 +107,7 @@ localization:
 
     source:
       session_id: grasp-waypoint-v1
-      capture_date: 2026-08-19
+      capture_date: "2026-08-19"
       sample_count: 11
       capture_order: far_to_near_across_left_right_workspace
       coordinate_reference: manually_taught_roarm_t105_gripper_centre
