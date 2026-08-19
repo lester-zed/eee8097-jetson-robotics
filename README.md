@@ -9,7 +9,7 @@ The current real-hardware pipeline is:
 YOLO detection
   -> camera-guided RPLIDAR ranging
   -> base_link target localization
-  -> measured arm-command calibration
+  -> measured grasp-command calibration
   -> four-waypoint grasp planning
   -> feedback-verified RoArm execution
 ```
@@ -20,12 +20,24 @@ YOLO detection
 - The real one-grasp path is implemented with a pre-execution sensor recheck.
 - Every terminal pipeline run is recorded as structured JSONL and CSV.
 - A Real Camera + Real RPLIDAR + Mock Arm calibration capture path is available.
-- A 27-sample affine command calibration maps the raw target to the measured
-  RoArm gripper-centre command while preserving both coordinates in run logs.
+- The original 27-sample affine command calibration established the first
+  repeatable sensor-to-command model and remains preserved in Git history.
+- The current production grasp calibration is fitted from **11 manually taught
+  gripper-centre poses** captured across the reachable workspace on 19 Aug 2026.
+  It uses a bounded `bilinear_xy` model so the grasp command can represent the
+  spatially varying lateral residual seen in the physical baseline.
+- The 11-point taught dataset gives a training planar RMSE of **5.87 mm** and a
+  leave-one-position-out planar RMSE of **7.95 mm** for the final XY grasp
+  command. The previous production model had a **21.37 mm** planar RMSE on the
+  eight newly taught points that were inside its calibration domain.
+- The existing `+10 mm` X and `-15 mm` Y planner offsets are retained as part of
+  the production command convention; the new bilinear fit explicitly accounts
+  for them, so they are not double-counted.
+- Grasp Z remains the approved fixed task-plane value (`-110 mm`). The manually
+  taught T=105 Z values are retained as evidence but are not yet fitted because
+  the current RPLIDAR sensing is planar.
 - A calibrated plan-only profile uses the real sensors with a Mock RoArm before
   the one-grasp real-hardware run.
-- The first successful real grasp adds a bounded `+10 mm` post-calibration X
-  fine-tune so the gripper moves back toward the tissue-package centre.
 - RoArm joint self-test, custom home, manual Cartesian test, and boot health checks are available.
 - ROS 2, URDF/TF2, MoveIt 2, Gazebo, and Sim2Real evaluation are the next development stage.
 
@@ -59,7 +71,7 @@ Inside the existing Docker container:
 ```bash
 cd /workspace/src
 
-# Configuration, compile checks, and all no-hardware unit tests (64 tests)
+# Configuration, compile checks, and all no-hardware unit tests
 ./test_modular_pipeline.sh
 
 # Validate the committed real-hardware YAML without opening devices
@@ -78,8 +90,8 @@ cd /workspace/src
 ./run_modular_pipeline.sh
 ```
 
-Before the first calibrated real grasp, run the same perception and planning
-path with no arm motion:
+Before the first real grasp after a calibration change, run the same perception
+and planning path with no arm motion:
 
 ```bash
 ./run_modular_pipeline.sh configs/calibrated_plan_only.yaml
@@ -95,12 +107,12 @@ src/interfaces/         Stable component contracts
 src/adapters/           Mock device adapters
 src/vision/             YOLO camera implementation
 src/lidar/              RPLIDAR parsing and target-sector ranging
-src/localization/       Sensor-to-base target localization
+src/localization/       Sensor-to-base target localization and command calibration
 src/planning/           Workspace checks and grasp waypoints
 src/arm_control/        UART, Cartesian execution, home, and self-test
 src/pipeline/           Canonical task state machine
 src/experiments/        Structured run records and calibration statistics
-src/tests/              No-hardware regression tests
+src/tests/              No-hardware regression tests and calibration fixtures
 src/docs/               Active project documentation
 ```
 
