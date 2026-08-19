@@ -64,46 +64,66 @@ localization:
   calibration_approved: true
   target_z_approved: true
 
-  # 2026-08-19 grasp-waypoint calibration.
+  # 2026-08-19 workspace-first grasp-waypoint calibration.
   #
-  # Eleven workspace positions were captured from far to near and across the
-  # lateral field. For every position, the Camera + RPLIDAR nominal arm target
-  # was paired with a manually taught RoArm T=105 gripper-centre pose. A
-  # bilinear interaction term was selected because leave-one-position-out
-  # validation improved materially over a first-order affine fit and because
-  # the earlier grasp baseline showed spatially varying lateral residuals.
+  # Step 1: define an XY motion workspace that contains every manually taught
+  # point, including the far-left point whose pre-offset 3-D radius is 463.9 mm.
+  # Step 2: fit all 11 Camera + RPLIDAR / T=105 pairs inside that authorized
+  # region. A global bilinear model supplies smooth interpolation across the
+  # workspace. A compact local residual layer then corrects only neighborhoods
+  # around measured teach anchors; it decays exactly to zero 20 mm away.
   #
-  # The production planner retains the historical +10/-15 mm global fine-tune.
-  # Therefore this calibration is fitted to (manual taught grasp - planner
-  # offsets); after planning, the final grasp waypoint is the fitted manual
-  # command estimate.
+  # The planner retains the historical +10/-15 mm fine-tune. Calibration output
+  # therefore predicts the taught grasp command minus those planner offsets.
   command_calibration:
     enabled: true
-    model: bilinear_xy
-    calibration_id: tissue-grasp-waypoint-20260819-v2
+    model: bilinear_local_xy
+    calibration_id: tissue-grasp-waypoint-20260819-v3
     origin_mm: [-377.70475532, 2.01385567]
 
+    # Global bilinear baseline, fitted to all 11 taught positions.
     # For dx=x-origin_x, dy=y-origin_y:
     # x_pre = a*dx + b*dy + c*dx*dy + d
     # y_pre = e*dx + f*dy + g*dx*dy + h
-    # Final planner grasp then adds (+10, -15) mm.
     x_coefficients: [1.11871727, 0.03403679, 0.00039473493, -377.68143017]
     y_coefficients: [0.08296279, 1.40788329, 0.00411045625, -8.48493033]
+
+    # Compact residual correction fitted after the global model.
+    # Each row is [nominal_x, nominal_y, coefficient_x, coefficient_y].
+    # Wendland-C2 support is local and reaches exactly zero at 20 mm, so
+    # unsupported parts of the workspace retain the global bilinear mapping.
+    local_residual:
+      basis: wendland_c2
+      support_radius_mm: 20.0
+      anchors:
+        - [-434.37727188858, -0.64053321778, 3.01392748, 3.36852146]
+        - [-436.71506955274, 57.95751961658, -0.00227320, -0.77627341]
+        - [-435.20792045163, -59.55801804481, 0.43679797, -1.41753196]
+        - [-393.84037929164, 46.01972015587, 2.04150198, -2.24995951]
+        - [-380.99585712086, 1.14980140563, -10.36625550, 2.92094104]
+        - [-380.79562174750, -35.78593343269, 2.57815566, -1.59472786]
+        - [-346.65974125954, 27.17740170782, 4.95720537, 1.19532447]
+        - [-347.70156772650, 7.02271181953, -7.26982751, -4.11005369]
+        - [-342.35751882878, -21.62420952972, -3.08007924, 1.04357423]
+        - [-327.42535024984, 17.96055213746, 0.66205961, 1.49879944]
+        - [-328.67601044709, -17.52660028381, 6.93840996, 0.09472237]
+
     require_translation_corrected_lidar: true
 
-    # Measured nominal sensor coverage plus a small guard margin. The output
-    # box also rejects unmeasured rectangle corners where the bilinear model
-    # would otherwise extrapolate to implausible lateral commands.
+    # Bounds are defined from the complete 11-position dataset before fitting,
+    # then padded by about 10 mm. They are distinct from the planner's physical
+    # workspace and continue to fail closed for model outputs outside measured
+    # command-space coverage.
     input_bounds_mm:
-      min_x_mm: -442.0
-      max_x_mm: -322.0
-      min_y_mm: -65.0
-      max_y_mm: 63.0
+      min_x_mm: -447.0
+      max_x_mm: -317.0
+      min_y_mm: -70.0
+      max_y_mm: 70.0
     output_bounds_mm:
-      min_x_mm: -448.0
-      max_x_mm: -315.0
-      min_y_mm: -90.0
-      max_y_mm: 55.0
+      min_x_mm: -455.0
+      max_x_mm: -305.0
+      min_y_mm: -100.0
+      max_y_mm: 65.0
 
     source:
       session_id: grasp-waypoint-v1
@@ -112,8 +132,18 @@ localization:
       capture_order: far_to_near_across_left_right_workspace
       coordinate_reference: manually_taught_roarm_t105_gripper_centre
       planner_offsets_during_fit_mm: [10.0, -15.0]
-      training_planar_rmse_mm: 5.8662
-      leave_one_position_out_planar_rmse_mm: 7.9542
+      measured_nominal_x_range_mm: [-436.7151, -327.4254]
+      measured_nominal_y_range_mm: [-59.5580, 57.9575]
+      measured_manual_x_range_mm: [-433.0988, -306.3225]
+      measured_manual_y_range_mm: [-101.9475, 35.9580]
+      global_bilinear_training_planar_rmse_mm: 5.8662
+      global_bilinear_training_max_error_mm: 11.8469
+      local_residual_basis: wendland_c2
+      local_residual_support_radius_mm: 20.0
+      local_residual_fit_ridge: 0.1
+      training_planar_rmse_mm: 0.5350
+      training_max_error_mm: 1.0770
+      leave_one_position_out_planar_rmse_mm: 7.9574
       leave_one_position_out_max_error_mm: 13.0411
       prior_model_overlapping_points_planar_rmse_mm: 21.3697
       z_fit_enabled: false
@@ -144,7 +174,7 @@ planner:
   lift_height_mm: 200.0
 
   # Retained for compatibility with the validated grasp convention. The new
-  # bilinear calibration was fitted with these offsets explicitly accounted for.
+  # workspace-first calibration was fitted with these offsets explicitly accounted for.
   grasp_x_offset_mm: 10.0
   grasp_y_offset_mm: -15.0
 
@@ -154,15 +184,17 @@ planner:
   gripper_closed_rad: 3.14
 
 workspace:
-  # Expanded only enough to include the newly measured far/lateral taught
-  # commands before and after the retained planner offsets.
-  min_x_mm: -450.0
+  # XY workspace is authorized independently of the fitted calibration.
+  # All 11 manually taught XY grasp positions and their pre-offset commands are
+  # inside this region. The most demanding taught pre-offset point has a
+  # 3-D radius of 463.9 mm at the fixed Z=-110 mm; 480 mm preserves margin.
+  min_x_mm: -460.0
   max_x_mm: 500.0
-  min_y_mm: -105.0
-  max_y_mm: 100.0
+  min_y_mm: -120.0
+  max_y_mm: 120.0
   min_z_mm: -120.0
   max_z_mm: 280.0
-  max_radius_mm: 465.0
+  max_radius_mm: 480.0
 
 arm:
   mode: real                 # mock | real
