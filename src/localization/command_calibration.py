@@ -39,6 +39,33 @@ def _origin_xy(value: Any, name: str) -> tuple[float, float]:
     return _finite(value[0], name), _finite(value[1], name)
 
 
+def _local_anchor_rows(
+    value: Any,
+    name: str,
+) -> tuple[tuple[float, float, float, float], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError(f"{name} must be a sequence of [x, y, coeff_x, coeff_y]")
+    rows: list[tuple[float, float, float, float]] = []
+    for index, row in enumerate(value):
+        if not isinstance(row, Sequence) or isinstance(row, (str, bytes)):
+            raise ValueError(
+                f"{name}[{index}] must contain [x, y, coeff_x, coeff_y]"
+            )
+        if len(row) != 4:
+            raise ValueError(
+                f"{name}[{index}] must contain exactly four numbers"
+            )
+        rows.append(
+            tuple(
+                _finite(item, f"{name}[{index}]")
+                for item in row
+            )  # type: ignore[arg-type]
+        )
+    if not rows:
+        raise ValueError(f"{name} must contain at least one anchor")
+    return tuple(rows)
+
+
 @dataclass(frozen=True)
 class XYBounds:
     min_x_mm: float
@@ -85,16 +112,23 @@ class XYBounds:
 class AffineXYCommandCalibration:
     """Map nominal arm coordinates to measured RoArm gripper commands.
 
-    The historical ``affine_xy`` model uses ``[x, y, 1]``. The newer
-    ``bilinear_xy`` model adds a bounded ``dx*dy`` interaction term around a
-    recorded origin. The bilinear term captures the spatially varying lateral
-    residual observed in manually taught grasp-waypoint measurements, while
-    preserving the existing fail-closed input/output domain checks.
+    Supported models:
 
-    This remains an arm-command calibration, not a replacement for the raw
-    Camera/LiDAR pose. The raw ``base_link`` estimate remains available for
-    recheck logic and logging, while only the planner-facing ``arm_base`` point
-    is corrected.
+    ``affine_xy``
+        Historical first-order map using ``[x, y, 1]``.
+
+    ``bilinear_xy``
+        Global map using ``[dx, dy, dx*dy, 1]`` around a recorded origin.
+
+    ``bilinear_local_xy``
+        The same global bilinear map plus a compact, bounded local residual
+        correction learned from manually taught grasp-waypoint anchors. The
+        compact Wendland-C2 basis decays to zero outside its support radius, so
+        measured anchors can be matched closely without replacing the global
+        model in unsupported regions.
+
+    This remains a command-space calibration. The raw Camera/LiDAR target is
+    preserved separately for recheck logic and logging.
     """
 
     calibration_id: str
@@ -107,16 +141,21 @@ class AffineXYCommandCalibration:
     model: str = "affine_xy"
     origin_x_mm: float = 0.0
     origin_y_mm: float = 0.0
+    local_support_radius_mm: float = 0.0
+    local_residual_anchors: tuple[tuple[float, float, float, float], ...] = ()
 
     def __post_init__(self) -> None:
         if not str(self.calibration_id).strip():
             raise ValueError("calibration_id must be non-empty")
         model = str(self.model).strip().lower()
-        if model not in {"affine_xy", "bilinear_xy"}:
+        allowed_models = {"affine_xy", "bilinear_xy", "bilinear_local_xy"}
+        if model not in allowed_models:
             raise ValueError(
-                "command_calibration.model must be 'affine_xy' or 'bilinear_xy'"
+                "command_calibration.model must be 'affine_xy', "
+                "'bilinear_xy', or 'bilinear_local_xy'"
             )
         object.__setattr__(self, "model", model)
+
         expected_length = 3 if model == "affine_xy" else 4
         object.__setattr__(
             self,
@@ -147,23 +186,71 @@ class AffineXYCommandCalibration:
             _finite(self.origin_y_mm, "origin_y_mm"),
         )
 
+        if model == "bilinear_local_xy":
+            radius = _finite(
+                self.local_support_radius_mm,
+                "local_support_radius_mm",
+            )
+            if radius <= 0.0:
+                raise ValueError(
+                    "bilinear_local_xy requires local_support_radius_mm > 0"
+                )
+            anchors = _local_anchor_rows(
+                self.local_residual_anchors,
+                "local_residual_anchors",
+            )
+            object.__setattr__(self, "local_support_radius_mm", radius)
+            object.__setattr__(self, "local_residual_anchors", anchors)
+        else:
+            object.__setattr__(self, "local_support_radius_mm", 0.0)
+            object.__setattr__(self, "local_residual_anchors", ())
+
     @classmethod
     def from_mapping(cls, value: Any) -> "AffineXYCommandCalibration":
         if not isinstance(value, Mapping):
             raise ValueError("command_calibration must be a mapping")
         model = str(value.get("model", "")).strip().lower()
-        if model not in {"affine_xy", "bilinear_xy"}:
+        allowed_models = {"affine_xy", "bilinear_xy", "bilinear_local_xy"}
+        if model not in allowed_models:
             raise ValueError(
-                "command_calibration.model must be 'affine_xy' or 'bilinear_xy'"
+                "command_calibration.model must be 'affine_xy', "
+                "'bilinear_xy', or 'bilinear_local_xy'"
             )
+
         expected_length = 3 if model == "affine_xy" else 4
         origin_x_mm = 0.0
         origin_y_mm = 0.0
-        if model == "bilinear_xy":
+        if model in {"bilinear_xy", "bilinear_local_xy"}:
             origin_x_mm, origin_y_mm = _origin_xy(
                 value.get("origin_mm"),
                 "command_calibration.origin_mm",
             )
+
+        local_support_radius_mm = 0.0
+        local_residual_anchors: tuple[
+            tuple[float, float, float, float], ...
+        ] = ()
+        if model == "bilinear_local_xy":
+            local = value.get("local_residual")
+            if not isinstance(local, Mapping):
+                raise ValueError(
+                    "bilinear_local_xy requires command_calibration.local_residual"
+                )
+            basis = str(local.get("basis", "")).strip().lower()
+            if basis != "wendland_c2":
+                raise ValueError(
+                    "command_calibration.local_residual.basis must be "
+                    "'wendland_c2'"
+                )
+            local_support_radius_mm = _finite(
+                local.get("support_radius_mm"),
+                "command_calibration.local_residual.support_radius_mm",
+            )
+            local_residual_anchors = _local_anchor_rows(
+                local.get("anchors"),
+                "command_calibration.local_residual.anchors",
+            )
+
         try:
             return cls(
                 calibration_id=str(value["calibration_id"]),
@@ -196,11 +283,21 @@ class AffineXYCommandCalibration:
                 model=model,
                 origin_x_mm=origin_x_mm,
                 origin_y_mm=origin_y_mm,
+                local_support_radius_mm=local_support_radius_mm,
+                local_residual_anchors=local_residual_anchors,
             )
         except KeyError as exc:
             raise ValueError(
                 f"command_calibration is missing {exc.args[0]}"
             ) from exc
+
+    @staticmethod
+    def _wendland_c2(distance_mm: float, support_radius_mm: float) -> float:
+        q = float(distance_mm) / float(support_radius_mm)
+        if q >= 1.0:
+            return 0.0
+        one_minus_q = 1.0 - q
+        return one_minus_q**4 * (4.0 * q + 1.0)
 
     def apply(self, nominal_arm: Point3D) -> Point3D:
         if nominal_arm.frame_id != "arm_base":
@@ -215,16 +312,46 @@ class AffineXYCommandCalibration:
         if self.model == "affine_xy":
             ax, ay, bias_x = self.x_coefficients
             bx, by, bias_y = self.y_coefficients
-            corrected_x = ax * nominal_arm.x_mm + ay * nominal_arm.y_mm + bias_x
-            corrected_y = bx * nominal_arm.x_mm + by * nominal_arm.y_mm + bias_y
+            corrected_x = (
+                ax * nominal_arm.x_mm
+                + ay * nominal_arm.y_mm
+                + bias_x
+            )
+            corrected_y = (
+                bx * nominal_arm.x_mm
+                + by * nominal_arm.y_mm
+                + bias_y
+            )
         else:
             dx = nominal_arm.x_mm - self.origin_x_mm
             dy = nominal_arm.y_mm - self.origin_y_mm
             interaction = dx * dy
             ax, ay, axy, bias_x = self.x_coefficients
             bx, by, bxy, bias_y = self.y_coefficients
-            corrected_x = ax * dx + ay * dy + axy * interaction + bias_x
-            corrected_y = bx * dx + by * dy + bxy * interaction + bias_y
+            corrected_x = (
+                ax * dx + ay * dy + axy * interaction + bias_x
+            )
+            corrected_y = (
+                bx * dx + by * dy + bxy * interaction + bias_y
+            )
+
+            if self.model == "bilinear_local_xy":
+                for (
+                    anchor_x,
+                    anchor_y,
+                    coefficient_x,
+                    coefficient_y,
+                ) in self.local_residual_anchors:
+                    distance = math.hypot(
+                        nominal_arm.x_mm - anchor_x,
+                        nominal_arm.y_mm - anchor_y,
+                    )
+                    weight = self._wendland_c2(
+                        distance,
+                        self.local_support_radius_mm,
+                    )
+                    corrected_x += weight * coefficient_x
+                    corrected_y += weight * coefficient_y
 
         corrected = Point3D(
             x_mm=corrected_x,
@@ -254,6 +381,13 @@ class AffineXYCommandCalibration:
             ),
             "source": dict(self.source or {}),
         }
-        if self.model == "bilinear_xy":
+        if self.model in {"bilinear_xy", "bilinear_local_xy"}:
             metadata["origin_mm"] = [self.origin_x_mm, self.origin_y_mm]
+        if self.model == "bilinear_local_xy":
+            metadata["local_residual"] = {
+                "basis": "wendland_c2",
+                "support_radius_mm": self.local_support_radius_mm,
+                "anchor_count": len(self.local_residual_anchors),
+                "anchors": [list(row) for row in self.local_residual_anchors],
+            }
         return metadata
