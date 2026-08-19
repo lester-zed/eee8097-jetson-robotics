@@ -94,18 +94,21 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
         cls.planner = _runtime_planner(cls.config)
         cls.fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
-    def test_current_model_is_bilinear_manual_teach_calibration(self) -> None:
-        self.assertEqual(self.calibration.model, "bilinear_xy")
+    def test_current_model_is_workspace_first_local_bilinear_calibration(self) -> None:
+        self.assertEqual(self.calibration.model, "bilinear_local_xy")
         self.assertEqual(
             self.calibration.calibration_id,
-            "tissue-grasp-waypoint-20260819-v2",
+            "tissue-grasp-waypoint-20260819-v3",
         )
         self.assertAlmostEqual(self.calibration.origin_x_mm, -377.70475532)
         self.assertAlmostEqual(self.calibration.origin_y_mm, 2.01385567)
         metadata = self.calibration.to_metadata()
-        self.assertEqual(metadata["model"], "bilinear_xy")
+        self.assertEqual(metadata["model"], "bilinear_local_xy")
         self.assertEqual(len(metadata["x_coefficients"]), 4)
         self.assertEqual(len(metadata["y_coefficients"]), 4)
+        self.assertEqual(metadata["local_residual"]["basis"], "wendland_c2")
+        self.assertEqual(metadata["local_residual"]["support_radius_mm"], 20.0)
+        self.assertEqual(metadata["local_residual"]["anchor_count"], 11)
 
     def test_all_11_taught_grasp_samples_replay_with_expected_error(self) -> None:
         errors: list[float] = []
@@ -118,6 +121,8 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
                     "arm_base",
                 )
             )
+            # The production model was fitted with the retained planner offsets
+            # explicitly removed from the manually taught final grasp command.
             predicted_grasp_x = (
                 corrected.x_mm
                 + float(self.config.get("planner", "grasp_x_offset_mm"))
@@ -137,11 +142,11 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
             sum(value * value for value in errors) / len(errors)
         )
         self.assertEqual(len(errors), 11)
-        self.assertLessEqual(planar_rmse, 5.867)
-        self.assertLessEqual(max(errors), 11.8475)
+        self.assertLessEqual(planar_rmse, 0.536)
+        self.assertLessEqual(max(errors), 1.078)
 
     def test_far_right_sample_maps_to_expected_final_grasp(self) -> None:
-        sample = self.fixture["samples"][1]
+        sample = self.fixture["samples"][1]  # RIGHT FAR
         corrected = self.calibration.apply(
             Point3D(
                 sample["nominal_arm_x_mm"],
@@ -150,8 +155,8 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
                 "arm_base",
             )
         )
-        self.assertAlmostEqual(corrected.x_mm, -443.096265, places=3)
-        self.assertAlmostEqual(corrected.y_mm, 51.811902, places=3)
+        self.assertAlmostEqual(corrected.x_mm, -443.098538, places=3)
+        self.assertAlmostEqual(corrected.y_mm, 51.035629, places=3)
 
         target = self._localizer().localize(
             _detection(),
@@ -162,12 +167,12 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
         )
         plan = self.planner.plan(target)
         grasp = plan.waypoint("grasp").point
-        self.assertAlmostEqual(grasp.x_mm, -433.096265, places=3)
-        self.assertAlmostEqual(grasp.y_mm, 36.811902, places=3)
+        self.assertAlmostEqual(grasp.x_mm, -433.098538, places=3)
+        self.assertAlmostEqual(grasp.y_mm, 36.035629, places=3)
         self.assertEqual(grasp.z_mm, -110.0)
 
     def test_far_left_sample_is_inside_new_measured_operating_region(self) -> None:
-        sample = self.fixture["samples"][2]
+        sample = self.fixture["samples"][2]  # LEFT FAR
         target = self._localizer().localize(
             _detection(),
             _measurement(
@@ -179,6 +184,28 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
         grasp = plan.waypoint("grasp").point
         self.assertLess(grasp.y_mm, -95.0)
         self.assertGreaterEqual(grasp.x_mm, -450.0)
+
+    def test_all_11_taught_xy_positions_are_inside_authorized_workspace(self) -> None:
+        for sample in self.fixture["samples"]:
+            target = self._localizer().localize(
+                _detection(),
+                _measurement(
+                    sample["nominal_arm_x_mm"],
+                    sample["nominal_arm_y_mm"],
+                ),
+            )
+            plan = self.planner.plan(target)
+            grasp = plan.waypoint("grasp").point
+            self.assertGreaterEqual(grasp.x_mm, -460.0)
+            self.assertLessEqual(grasp.x_mm, 500.0)
+            self.assertGreaterEqual(grasp.y_mm, -120.0)
+            self.assertLessEqual(grasp.y_mm, 120.0)
+            for waypoint in plan.waypoints:
+                point = waypoint.point
+                radius = math.sqrt(
+                    point.x_mm**2 + point.y_mm**2 + point.z_mm**2
+                )
+                self.assertLessEqual(radius, 480.0)
 
     def test_target_outside_measured_domain_is_rejected(self) -> None:
         bounds = self.calibration.input_bounds
@@ -252,9 +279,9 @@ class MeasuredCommandCalibrationTests(unittest.TestCase):
         )
         self.assertEqual(
             target.metadata["arm_command_calibration"]["model"],
-            "bilinear_xy",
+            "bilinear_local_xy",
         )
-        self.assertIn("bilinear_xy", target.metadata["localization_method"])
+        self.assertIn("bilinear_local_xy", target.metadata["localization_method"])
         self.assertFalse(target.provisional)
 
     def test_bearing_only_fallback_is_rejected_for_measured_model(self) -> None:
@@ -276,7 +303,7 @@ class CommandCalibrationConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(
             config.get("localization", "command_calibration")["model"],
-            "bilinear_xy",
+            "bilinear_local_xy",
         )
         self.assertFalse(config.get("arm", "allow_real_motion"))
         self.assertEqual(config.get("planner", "grasp_x_offset_mm"), 10.0)
