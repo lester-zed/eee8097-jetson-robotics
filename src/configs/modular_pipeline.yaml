@@ -1,6 +1,6 @@
 # EEE8097 Camera + RPLIDAR + RoArm modular pipeline configuration
 #
-# Operator-validated hardware profile (2026-08-09):
+# Operator-validated hardware profile (2026-08-19):
 #   REAL Camera + REAL RPLIDAR + REAL RoArm.
 # This file can command physical motion after the typed confirmation gate.
 # Preserve measured geometry and motion values unless a change is backed by a
@@ -57,49 +57,67 @@ lidar:
   mock_distance_mm: 350.0
 
 localization:
-  # RPLIDAR only provides X/Y. The operator-established gripper-centre command
-  # for the tissue package uses Z=-110 mm.
+  # RPLIDAR only provides X/Y. The current grasp task therefore keeps the
+  # operator-approved tissue-package task-plane Z fixed at -110 mm.
   target_z_mm: -110.0
 
-  # Approve only after checking several physically measured X/Y target positions.
   calibration_approved: true
-
-  # Separate approval for the configured grasp Z. Real mode requires both flags.
   target_z_approved: true
 
-  # End-to-end mapping from the raw nominal arm target to the RoArm command that
-  # places the gripper at the tissue-package centre. Fitted from 9 positions x
-  # 3 repeats in session grid-20260810T012159Z-6a598d.
+  # 2026-08-19 grasp-waypoint calibration.
+  #
+  # Eleven workspace positions were captured from far to near and across the
+  # lateral field. For every position, the Camera + RPLIDAR nominal arm target
+  # was paired with a manually taught RoArm T=105 gripper-centre pose. A
+  # bilinear interaction term was selected because leave-one-position-out
+  # validation improved materially over a first-order affine fit and because
+  # the earlier grasp baseline showed spatially varying lateral residuals.
+  #
+  # The production planner retains the historical +10/-15 mm global fine-tune.
+  # Therefore this calibration is fitted to (manual taught grasp - planner
+  # offsets); after planning, the final grasp waypoint is the fitted manual
+  # command estimate.
   command_calibration:
     enabled: true
-    model: affine_xy
-    calibration_id: tissue-command-grid-20260810-v1
-    x_coefficients: [1.27216682, 0.01445898, 83.15405484]
-    y_coefficients: [-0.16907799, 1.12365137, -76.94479474]
+    model: bilinear_xy
+    calibration_id: tissue-grasp-waypoint-20260819-v2
+    origin_mm: [-377.70475532, 2.01385567]
+
+    # For dx=x-origin_x, dy=y-origin_y:
+    # x_pre = a*dx + b*dy + c*dx*dy + d
+    # y_pre = e*dx + f*dy + g*dx*dy + h
+    # Final planner grasp then adds (+10, -15) mm.
+    x_coefficients: [1.11871727, 0.03403679, 0.00039473493, -377.68143017]
+    y_coefficients: [0.08296279, 1.40788329, 0.00411045625, -8.48493033]
     require_translation_corrected_lidar: true
 
-    # Training extrema plus a small guard margin. Targets outside either box
-    # fail during localization before a motion plan can execute.
+    # Measured nominal sensor coverage plus a small guard margin. The output
+    # box also rejects unmeasured rectangle corners where the bilinear model
+    # would otherwise extrapolate to implausible lateral commands.
     input_bounds_mm:
-      min_x_mm: -417.5
-      max_x_mm: -320.0
-      min_y_mm: -40.5
-      max_y_mm: 55.0
+      min_x_mm: -442.0
+      max_x_mm: -322.0
+      min_y_mm: -65.0
+      max_y_mm: 63.0
     output_bounds_mm:
-      min_x_mm: -445.0
-      max_x_mm: -330.0
-      min_y_mm: -70.0
+      min_x_mm: -448.0
+      max_x_mm: -315.0
+      min_y_mm: -90.0
       max_y_mm: 55.0
 
     source:
-      session_id: grid-20260810T012159Z-6a598d
-      sample_count: 27
-      command_anchor_mm: [-380.0, -20.0, -100.0]
-      training_planar_rmse_mm: 1.0791
-      grouped_leave_one_point_out_rmse_mm: 1.5721
-      grouped_leave_one_point_out_max_error_mm: 2.8613
-      source_git_commit: 374f5e53e12d8f466a6904184ba6dc124520a314
-      source_config_sha256: c7172b28d90a4328b8ce2c3ecb3f335a2641b86815f59caa83c1c289005ccd33
+      session_id: grasp-waypoint-v1
+      capture_date: "2026-08-19"
+      sample_count: 11
+      capture_order: far_to_near_across_left_right_workspace
+      coordinate_reference: manually_taught_roarm_t105_gripper_centre
+      planner_offsets_during_fit_mm: [10.0, -15.0]
+      training_planar_rmse_mm: 5.8662
+      leave_one_position_out_planar_rmse_mm: 7.9542
+      leave_one_position_out_max_error_mm: 13.0411
+      prior_model_overlapping_points_planar_rmse_mm: 21.3697
+      z_fit_enabled: false
+      note: manual T105 poses are command-space references, not external absolute world ground truth
 
     # The fitted model is valid only while these geometric inputs remain
     # identical. Config loading fails closed if one changes accidentally.
@@ -125,8 +143,8 @@ planner:
   pregrasp_height_mm: 300.0
   lift_height_mm: 200.0
 
-  # Post-calibration grasp fine-tuning validated by real grasp tests.
-  # Applied only after AffineXYCommandCalibration.
+  # Retained for compatibility with the validated grasp convention. The new
+  # bilinear calibration was fitted with these offsets explicitly accounted for.
   grasp_x_offset_mm: 10.0
   grasp_y_offset_mm: -15.0
 
@@ -136,13 +154,15 @@ planner:
   gripper_closed_rad: 3.14
 
 workspace:
-  min_x_mm: -440.0
+  # Expanded only enough to include the newly measured far/lateral taught
+  # commands before and after the retained planner offsets.
+  min_x_mm: -450.0
   max_x_mm: 500.0
-  min_y_mm: -100.0
+  min_y_mm: -105.0
   max_y_mm: 100.0
   min_z_mm: -120.0
   max_z_mm: 280.0
-  max_radius_mm: 460.0
+  max_radius_mm: 465.0
 
 arm:
   mode: real                 # mock | real

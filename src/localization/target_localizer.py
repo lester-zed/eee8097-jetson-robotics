@@ -68,7 +68,7 @@ class PlanarTargetLocalizer:
         if self.arm_command_calibration is not None:
             target_arm = self.arm_command_calibration.apply(nominal_target_arm)
             command_calibration = self.arm_command_calibration.to_metadata()
-            method += "_plus_affine_arm_command_v1"
+            method += f"_plus_{self.arm_command_calibration.model}_arm_command_v2"
         else:
             target_arm = nominal_target_arm
             command_calibration = {"applied": False}
