@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "capture_date": "2026-08-19",
+  "source_archives": [
+    "log(2).zip",
+    "log2.zip"
+  ],
+  "session_id": "grasp-waypoint-v1",
+  "coordinate_interpretation": "nominal arm_base target from Camera+RPLIDAR paired with manually taught RoArm T=105 gripper-centre command",
+  "sample_count": 11,
+  "ordering_note": "captured from far to near and across left/right workspace; labels are operator-entered and one close-right label is P910",
+  "samples": [
+    {
+      "point_id": "P001",
+      "note": "MID FAR",
+      "nominal_arm_x_mm": -434.3772718885765,
+      "nominal_arm_y_mm": -0.6405332177806115,
+      "manual_arm_x_mm": -427.7975993,
+      "manual_arm_y_mm": -27.59999704,
+      "manual_arm_z_mm": -130.8045942,
+      "confidence": 0.8456579446792603,
+      "range_mm": 175.0,
+      "range_mad_mm": 1.0
+    },
+    {
+      "point_id": "P002",
+      "note": "RIGHT FAR",
+      "nominal_arm_x_mm": -436.7150695527435,
+      "nominal_arm_y_mm": 57.95751961657611,
+      "manual_arm_x_mm": -433.0987651,
+      "manual_arm_y_mm": 35.95800114,
+      "manual_arm_z_mm": -109.6123601,
+      "confidence": 0.9229767322540284,
+      "range_mm": 186.0,
+      "range_mad_mm": 3.0
+    },
+    {
+      "point_id": "P003",
+      "note": "LEFT FAR",
+      "nominal_arm_x_mm": -435.20792045162943,
+      "nominal_arm_y_mm": -59.55801804481235,
+      "manual_arm_x_mm": -432.2288556,
+      "manual_arm_y_mm": -101.9474611,
+      "manual_arm_z_mm": -122.2943583,
+      "confidence": 0.8701481819152832,
+      "range_mm": 187.0,
+      "range_mad_mm": 3.0
+    },
+    {
+      "point_id": "P004",
+      "note": "RIGHT MID FAR",
+      "nominal_arm_x_mm": -393.84037929164367,
+      "nominal_arm_y_mm": 46.01972015586829,
+      "manual_arm_x_mm": -382.2694469,
+      "manual_arm_y_mm": 31.73789979,
+      "manual_arm_z_mm": -112.4181126,
+      "confidence": 0.949822723865509,
+      "range_mm": 141.0,
+      "range_mad_mm": 5.0
+    },
+    {
+      "point_id": "P005",
+      "note": "MID MID FAR",
+      "nominal_arm_x_mm": -380.99585712086207,
+      "nominal_arm_y_mm": 1.14980140563492,
+      "manual_arm_x_mm": -382.7944107,
+      "manual_arm_y_mm": -21.74973286,
+      "manual_arm_z_mm": -113.0063917,
+      "confidence": 0.885359525680542,
+      "range_mm": 121.0,
+      "range_mad_mm": 1.0
+    },
+    {
+      "point_id": "P006",
+      "note": "LEFT MID FAR",
+      "nominal_arm_x_mm": -380.79562174749685,
+      "nominal_arm_y_mm": -35.78593343269424,
+      "manual_arm_x_mm": -369.5437297,
+      "manual_arm_y_mm": -78.23300773,
+      "manual_arm_z_mm": -117.715514,
+      "confidence": 0.9098835587501526,
+      "range_mm": 127.0,
+      "range_mad_mm": 1.0
+    },
+    {
+      "point_id": "P007",
+      "note": "RIGHT MID",
+      "nominal_arm_x_mm": -346.6597412595405,
+      "nominal_arm_y_mm": 27.177401707817754,
+      "manual_arm_x_mm": -326.3330566,
+      "manual_arm_y_mm": 19.04394281,
+      "manual_arm_z_mm": -122.9656113,
+      "confidence": 0.8998178839683533,
+      "range_mm": 91.0,
+      "range_mad_mm": 2.0
+    },
+    {
+      "point_id": "P008",
+      "note": "MID MID",
+      "nominal_arm_x_mm": -347.7015677265025,
+      "nominal_arm_y_mm": 7.022711819528194,
+      "manual_arm_x_mm": -341.8833496,
+      "manual_arm_y_mm": -17.84723016,
+      "manual_arm_z_mm": -112.9341157,
+      "confidence": 0.8299809098243713,
+      "range_mm": 88.0,
+      "range_mad_mm": 1.0
+    },
+    {
+      "point_id": "P009",
+      "note": "LEFT MID",
+      "nominal_arm_x_mm": -342.35751882877776,
+      "nominal_arm_y_mm": -21.624209529722748,
+      "manual_arm_x_mm": -332.4815569,
+      "manual_arm_y_mm": -56.11614128,
+      "manual_arm_z_mm": -127.5298234,
+      "confidence": 0.9229611158370972,
+      "range_mm": 86.0,
+      "range_mad_mm": 1.0
+    },
+    {
+      "point_id": "P910",
+      "note": "RIGHT CLOSE",
+      "nominal_arm_x_mm": -327.4253502498432,
+      "nominal_arm_y_mm": 17.96055213745922,
+      "manual_arm_x_mm": -309.8454569,
+      "manual_arm_y_mm": 8.081880726,
+      "manual_arm_z_mm": -119.7415001,
+      "confidence": 0.8517600297927856,
+      "range_mm": 70.0,
+      "range_mad_mm": 3.0
+    },
+    {
+      "point_id": "LEFT CLOSE",
+      "note": "LEFT CLOSE",
+      "nominal_arm_x_mm": -328.67601044708726,
+      "nominal_arm_y_mm": -17.526600283810893,
+      "manual_arm_x_mm": -306.3225061,
+      "manual_arm_y_mm": -50.73496446,
+      "manual_arm_z_mm": -128.1508212,
+      "confidence": 0.9297210574150084,
+      "range_mm": 71.0,
+      "range_mad_mm": 1.0
+    }
+  ]
+}
