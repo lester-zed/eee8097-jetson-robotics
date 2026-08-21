@@ -17,15 +17,20 @@ class GripperDisabledCartesianRoArmController(CartesianRoArmController):
     the hand angle read from T=105 at the start of the task instead of switching
     between the planned open/closed angles.
 
+    A short dwell is retained at the grasp waypoint so the demonstration keeps
+    the timing and visual structure of the original physical grasp sequence.
+
     This keeps Camera -> RPLIDAR -> localization -> planning -> Cartesian arm
     motion testable without pretending that a physical grasp took place.
     """
 
     disabled_reason = "temporary gripper servo fault"
+    grasp_pause_s = 3.0
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._preserved_hand_rad: float | None = None
+        self._disabled_closed_rad: float | None = None
 
     def execute_grasp(self, plan: GraspPlan, abort_event: Event) -> ExecutionResult:
         # Capture one real T=105 hand angle before the parent sequence starts.
@@ -38,6 +43,10 @@ class GripperDisabledCartesianRoArmController(CartesianRoArmController):
         if not math.isfinite(hand_rad):
             raise RuntimeError("RoArm returned a non-finite EoAT angle")
         self._preserved_hand_rad = min(max(hand_rad, 1.08), 3.14)
+        self._disabled_closed_rad = self._validate_clamp_angle(
+            plan.gripper_closed_rad,
+            "gripper_closed_rad",
+        )
 
         result = super().execute_grasp(plan, abort_event)
         feedback = dict(result.feedback)
@@ -47,6 +56,7 @@ class GripperDisabledCartesianRoArmController(CartesianRoArmController):
                 "control_enabled": False,
                 "disabled_reason": self.disabled_reason,
                 "preserved_hand_rad": self._preserved_hand_rad,
+                "simulated_grasp_pause_s": self.grasp_pause_s,
             }
         )
         feedback["gripper"] = gripper_feedback
@@ -70,6 +80,14 @@ class GripperDisabledCartesianRoArmController(CartesianRoArmController):
         return 0.0
 
     def _gripper_wait_seconds(self, start_rad: float, target_rad: float) -> float:
+        """Skip the opening delay but pause where the original close/grasp occurred."""
+        if self._disabled_closed_rad is not None and math.isclose(
+            float(target_rad),
+            self._disabled_closed_rad,
+            rel_tol=0.0,
+            abs_tol=1e-6,
+        ):
+            return self.grasp_pause_s
         return 0.0
 
     def _move_waypoint(
@@ -94,6 +112,7 @@ class GripperDisabledCartesianRoArmController(CartesianRoArmController):
                 "gripper_control_enabled": False,
                 "gripper_disabled_reason": self.disabled_reason,
                 "preserved_hand_rad": self._preserved_hand_rad,
+                "simulated_grasp_pause_s": self.grasp_pause_s,
             }
         )
         return payload
