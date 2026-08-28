@@ -175,7 +175,10 @@ private:
 
     shape_msgs::msg::SolidPrimitive primitive;
     primitive.type = shape_msgs::msg::SolidPrimitive::BOX;
-    primitive.dimensions = table_dimensions_;
+    // SolidPrimitive uses a ROS bounded vector in Humble, which cannot be
+    // assigned directly from the std::vector returned by a parameter.
+    primitive.dimensions = {
+      table_dimensions_[0], table_dimensions_[1], table_dimensions_[2]};
 
     geometry_msgs::msg::Pose pose;
     pose.orientation.w = 1.0;
