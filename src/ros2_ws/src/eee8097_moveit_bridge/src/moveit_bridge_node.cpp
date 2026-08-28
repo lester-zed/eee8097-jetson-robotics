@@ -96,6 +96,7 @@ public:
         std::placeholders::_2));
     pose_timer_ = node_->create_wall_timer(500ms, [this]() {publish_pose();});
     scene_timer_ = node_->create_wall_timer(2s, [this]() {
+      std::lock_guard<std::mutex> lock(operation_mutex_);
       if (apply_collision_scene()) {
         scene_timer_->cancel();
       }
@@ -199,6 +200,10 @@ private:
 
   void publish_pose()
   {
+    std::unique_lock<std::mutex> lock(operation_mutex_, std::try_to_lock);
+    if (!lock.owns_lock()) {
+      return;
+    }
     try {
       pose_publisher_->publish(move_group_.getCurrentPose(end_effector_link_));
     } catch (const std::exception & exception) {
