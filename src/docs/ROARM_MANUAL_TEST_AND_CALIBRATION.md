@@ -59,16 +59,21 @@ arm_mount:
   yaw_in_base_deg: 0.0
 
 localization:
-  target_z_mm: -100.0
+  target_z_mm: -110.0
   calibration_approved: true
   target_z_approved: true
+  command_calibration:
+    model: bilinear_local_xy
+    calibration_id: tissue-grasp-waypoint-20260819-v3
 
 planner:
-  grasp_y_offset_mm: 0.0
+  grasp_x_offset_mm: 10.0
+  grasp_y_offset_mm: -15.0
 ```
 
-RPLIDAR C1 supplies planar position only. The current `-100 mm` is the
-operator-established tissue-package gripper-centre command. The main pipeline
-also applies `tissue-command-grid-20260810-v1` to X/Y before planning; the
-former `-15 mm` Y-only offset must remain zero. Revoke the two approval flags
-before experimenting with new geometry.
+RPLIDAR C1 supplies planar position only. The current `-110 mm` is the approved
+tissue-package task-plane command. Before planning, the main pipeline applies
+the `tissue-grasp-waypoint-20260819-v3` global bilinear and local-residual X/Y
+mapping. The planner then adds the validated `+10 mm` X and `-15 mm` Y offsets
+once; both were accounted for during model fitting. Revoke the two approval
+flags before experimenting with new geometry.

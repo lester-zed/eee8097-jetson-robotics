@@ -22,9 +22,10 @@ open `/dev/ttyROARM`, and cannot construct the real RoArm adapter. The RPLIDAR
 does rotate and the Camera/YOLO stream is live. Keep the target and cables clear
 of the scanner.
 
-The target coordinates used for calibration are recorded before planning.
-`grasp_y_offset_mm` is now zero, so no second Y-only correction can bias the
-measurement.
+The target coordinates used for calibration are recorded before planning. The
+capture overlay sets `grasp_y_offset_mm` to zero and inherits the production
+X planner offset only in the generated Mock Arm plan. Planner offsets do not
+change the pre-planning nominal target stored for calibration fitting.
 
 ## Validate without opening devices
 
@@ -98,7 +99,7 @@ JSONL is the source of truth. Each run contains:
   `arm_base`; calibrated real runs also include nominal and corrected arm
   coordinates in target metadata;
 - pre-execution Camera/range/target shifts;
-- all four planned waypoints and the retained grasp Y offset;
+- all four planned waypoints and the profile-specific planner X/Y offsets;
 - execution result, pipeline error, failure type and recording error;
 - optional measured ground truth, repeat index, notes and human-judged grasp
   outcome;
@@ -143,7 +144,23 @@ Do not run annotation while another process is writing the same log.
 Session `grid-20260810T012159Z-6a598d` completed 27/27 observations. The entered
 coordinates were clarified as operator-established RoArm gripper-centre
 commands, anchored at `[-380, -20, -100] mm`, rather than independent world
-survey points. The fitted affine model therefore belongs between the nominal
-arm transform and the planner. It is applied in a separate
-`fix/apply-measured-command-calibration` change, with the raw-capture profile
-remaining uncorrected.
+survey points. This historical dataset established the first affine
+command-space correction between the nominal arm transform and the planner.
+
+## Current 2026-08-19 production calibration
+
+The current production profile supersedes the first affine model. It uses 11
+manually taught command references across the reachable workspace. A global
+bilinear mapping is followed by a Wendland-C2 local residual layer with a
+20 mm support radius. The current results are:
+
+- global bilinear training planar RMSE: **5.87 mm**;
+- local-residual training planar RMSE: **0.535 mm**;
+- leave-one-position-out planar RMSE: **7.96 mm**;
+- largest leave-one-position-out error: **13.04 mm**.
+
+These are command-space calibration results. The 0.535 mm value is measured on
+the taught anchors and must not be reported as independent Cartesian accuracy
+or physical grasp success. The raw-capture profile remains uncorrected so a
+future calibration dataset cannot be evaluated through the model it is meant
+to test.

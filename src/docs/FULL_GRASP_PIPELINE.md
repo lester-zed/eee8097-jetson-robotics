@@ -40,8 +40,8 @@ localization:
 
   command_calibration:
     enabled: true
-    model: bilinear_xy
-    calibration_id: tissue-grasp-waypoint-20260819-v2
+    model: bilinear_local_xy
+    calibration_id: tissue-grasp-waypoint-20260819-v3
 
 planner:
   grasp_x_offset_mm: 10.0
@@ -68,10 +68,14 @@ motion-capture ground truth. The current 2-D LiDAR still provides only planar
 X/Y information, so the production grasp Z remains the approved fixed value of
 `-110 mm`.
 
-A first-order affine XY fit was compared with a model that also contains an
-`x*y` interaction. Leave-one-position-out testing favoured the bounded bilinear
-model, which better represents the spatially varying lateral error previously
-seen at different workspace locations.
+A first-order affine XY fit was compared with a global model that also contains
+an `x*y` interaction. The global bilinear model reduced the position-dependent
+lateral error, but visible residuals remained around several taught locations.
+The current v3 calibration therefore adds a compact local residual layer to the
+global mapping. It uses a Wendland-C2 basis with a 20 mm support radius. Each
+local term becomes exactly zero outside its measured neighbourhood, so the
+global bilinear mapping remains responsible for unsupported parts of the
+authorised workspace.
 
 The active model uses centred coordinates:
 
@@ -90,6 +94,17 @@ y_pre = 0.08296279*dx
       - 8.48493033
 ```
 
+For each taught anchor, v3 adds the stored X/Y residual multiplied by:
+
+```text
+q = distance_to_anchor / 20 mm
+w(q) = (1 - q)^4 * (4q + 1),  for 0 <= q < 1
+w(q) = 0,                     for q >= 1
+```
+
+This local term improves agreement at taught commands without applying a
+workspace-wide fixed offset.
+
 The production planner then retains the existing global fine-tune:
 
 ```text
@@ -103,9 +118,15 @@ so they are not double-counted.
 
 The 11-point dataset gives:
 
-- training planar RMSE: **5.87 mm**;
-- leave-one-position-out planar RMSE: **7.95 mm**;
+- global bilinear training planar RMSE: **5.87 mm**;
+- v3 local-residual training planar RMSE: **0.535 mm**;
+- leave-one-position-out planar RMSE: **7.96 mm**;
 - largest leave-one-position-out error: **13.04 mm**.
+
+The 0.535 mm result is an in-sample command-space fitting error at the taught
+anchors. It is not an independent measurement of Cartesian accuracy or
+physical grasp success. The leave-one-position-out result is the more cautious
+estimate for an unseen position inside the tested workspace.
 
 For comparison, the previous production grasp command had **21.37 mm planar
 RMSE** on the eight new taught points that were inside its old calibration
@@ -124,11 +145,11 @@ and rejects excessive image-centre, range, or fused target-position shift. It
 also rejects noisy/mixed RPLIDAR sectors through MAD and span thresholds.
 
 The command calibration rejects nominal targets outside its measured input box
-and corrected targets outside a conservative output box. The latter is
-important for the bilinear model because the rectangular input box contains
-unmeasured corner combinations; output bounds prevent those corners from
-silently producing large lateral extrapolations. The geometry values used by
-the dataset remain locked through `expected_inputs`.
+and corrected targets outside a conservative output box. The output check is
+important because the rectangular input box contains unmeasured corner
+combinations. The local residual also has a strict 20 mm support radius, so it
+cannot silently modify distant regions. The geometry values used by the
+dataset remain locked through `expected_inputs`.
 
 The planner workspace is also independent from the calibration domain. It is
 currently expanded only enough to include the manually exercised far/lateral

@@ -24,15 +24,18 @@ YOLO detection
   repeatable sensor-to-command model and remains preserved in Git history.
 - The current production grasp calibration is fitted from **11 manually taught
   gripper-centre poses** captured across the reachable workspace on 19 Aug 2026.
-  It uses a bounded `bilinear_xy` model so the grasp command can represent the
-  spatially varying lateral residual seen in the physical baseline.
-- The 11-point taught dataset gives a training planar RMSE of **5.87 mm** and a
-  leave-one-position-out planar RMSE of **7.95 mm** for the final XY grasp
-  command. The previous production model had a **21.37 mm** planar RMSE on the
-  eight newly taught points that were inside its calibration domain.
+  It uses a global `bilinear_xy` mapping followed by a bounded
+  `bilinear_local_xy` residual layer. The local correction uses a Wendland-C2
+  basis and decays to zero 20 mm from each taught anchor.
+- The global bilinear baseline gives a training planar RMSE of **5.87 mm**. The
+  local residual layer reduces the same-anchor fitting RMSE to **0.535 mm**,
+  while leave-one-position-out planar RMSE remains **7.96 mm**. The previous
+  production model had a **21.37 mm** planar RMSE on the eight newly taught
+  points that were inside its calibration domain. These values describe
+  command-space calibration error, not end-to-end physical grasp accuracy.
 - The existing `+10 mm` X and `-15 mm` Y planner offsets are retained as part of
-  the production command convention; the new bilinear fit explicitly accounts
-  for them, so they are not double-counted.
+  the production command convention. Both offsets were accounted for during
+  fitting, so they are not double-counted.
 - Grasp Z remains the approved fixed task-plane value (`-110 mm`). The manually
   taught T=105 Z values are retained as evidence but are not yet fitted because
   the current RPLIDAR sensing is planar.
