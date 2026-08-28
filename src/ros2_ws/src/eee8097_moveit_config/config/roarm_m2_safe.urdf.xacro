@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roarm_m2">
+  <!-- Reuse the official Waveshare geometry and TF chain.  ros2_control is
+       intentionally absent: the real action bridge owns J1-J3 and no
+       gripper command interface is exposed. -->
+  <xacro:include filename="$(find roarm_description)/urdf/roarm_m2/roarm_m2.xacro"/>
+</robot>

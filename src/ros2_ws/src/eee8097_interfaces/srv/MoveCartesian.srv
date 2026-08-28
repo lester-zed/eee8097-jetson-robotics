@@ -1,0 +1,13 @@
+float64 x
+float64 y
+float64 z
+bool execute
+float64 velocity_scaling
+float64 acceleration_scaling
+---
+bool success
+bool planned
+bool executed
+int32 trajectory_points
+float64 planning_time
+string message

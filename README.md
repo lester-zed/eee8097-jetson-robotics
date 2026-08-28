@@ -39,7 +39,13 @@ YOLO detection
 - A calibrated plan-only profile uses the real sensors with a Mock RoArm before
   the one-grasp real-hardware run.
 - RoArm joint self-test, custom home, manual Cartesian test, and boot health checks are available.
-- ROS 2, URDF/TF2, MoveIt 2, Gazebo, and Sim2Real evaluation are the next development stage.
+- A separate ROS 2 Humble workspace now provides the official RoArm URDF/TF
+  chain, real `/joint_states`, MoveIt 2 IK and collision-aware planning,
+  current-TCP pose output, and guarded arm-only trajectory execution.
+- The failed gripper is excluded from the MoveIt planning group and controller.
+  The real driver hard-rejects every trajectory containing the gripper joint.
+- Gazebo and Sim2Real evaluation remain later research stages; they are not
+  claimed by this real-arm MoveIt 2 integration.
 
 > [!CAUTION]
 > `src/configs/modular_pipeline.yaml` is the operator-validated **real hardware**
@@ -60,6 +66,9 @@ YOLO detection
 | No-motion calibration capture | `src/run_calibration_capture.sh` |
 | Calibration/experiment report | `src/run_calibration_report.sh` |
 | Calibrated plan-only profile | `src/configs/calibrated_plan_only.yaml` |
+| ROS 2 / MoveIt 2 workspace | `src/ros2_ws/` |
+| Safe MoveIt launcher | `src/ros2_ws/run_safe_moveit.sh` |
+| ROS 2 container helper | `scripts/run_ros2_docker.sh` |
 
 Legacy parallel entry points have been removed. New features should extend the
 modular pipeline rather than introduce another top-level controller.
@@ -97,6 +106,19 @@ and planning path with no arm motion:
 ./run_modular_pipeline.sh configs/calibrated_plan_only.yaml
 ```
 
+Validate the MoveIt 2 extension without opening any real device:
+
+```bash
+cd /workspace/src/ros2_ws
+python3 test_static.py
+./build_ros2.sh
+./run_safe_moveit.sh plan
+```
+
+See [`src/docs/ROS2_MOVEIT2_SAFE_ARM_ONLY.md`](src/docs/ROS2_MOVEIT2_SAFE_ARM_ONLY.md)
+before starting the real-state or real-execution mode. The legacy perception
+pipeline and the ROS 2 driver must never own `/dev/ttyROARM` at the same time.
+
 ## Repository layout
 
 ```text
@@ -114,6 +136,7 @@ src/pipeline/           Canonical task state machine
 src/experiments/        Structured run records and calibration statistics
 src/tests/              No-hardware regression tests and calibration fixtures
 src/docs/               Active project documentation
+src/ros2_ws/            ROS 2 Humble, MoveIt 2 and guarded real-arm bridge
 ```
 
 See [`src/docs/README.md`](src/docs/README.md) and
