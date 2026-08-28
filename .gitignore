@@ -1,5 +1,8 @@
 # Python
 __pycache__/
+src/ros2_ws/build/
+src/ros2_ws/install/
+src/ros2_ws/log/
 *.py[cod]
 *.pyo
 *.pyd

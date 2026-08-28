@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="roarm_m2">
+  <group name="hand">
+    <joint name="base_link_to_link1"/>
+    <joint name="link1_to_link2"/>
+    <joint name="link2_to_link3"/>
+    <chain base_link="base_link" tip_link="hand_tcp"/>
+  </group>
+
+  <group_state name="home" group="hand">
+    <joint name="base_link_to_link1" value="0.0"/>
+    <joint name="link1_to_link2" value="0.0"/>
+    <joint name="link2_to_link3" value="1.5708"/>
+  </group_state>
+  <group_state name="ready" group="hand">
+    <joint name="base_link_to_link1" value="0.0"/>
+    <joint name="link1_to_link2" value="0.0"/>
+    <joint name="link2_to_link3" value="2.618"/>
+  </group_state>
+
+  <!-- The failed gripper is not a planning group or end effector. -->
+  <disable_collisions link1="base_link" link2="link1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="link2" reason="Never"/>
+  <disable_collisions link1="gripper_link" link2="link3" reason="Adjacent"/>
+  <disable_collisions link1="link1" link2="link2" reason="Adjacent"/>
+  <disable_collisions link1="link2" link2="link3" reason="Adjacent"/>
+</robot>
