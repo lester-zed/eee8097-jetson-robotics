@@ -17,11 +17,13 @@ Target:  tissue_pack
 
 The current geometry, workspace, distance thresholds, and command calibration
 are hardware-tuned values. Do not alter them as part of an unrelated code
-change. The former planner-only `-15 mm` Y compensation is now `0 mm`; its
-effect is included in the measured two-dimensional command model and must not
-be applied a second time. After the first successful real grasp, the planner
-applies a bounded `grasp_x_offset_mm: +10` fine-tune toward the arm base. This
-post-calibration adjustment does not alter the raw target or fitted model.
+change. The current command calibration uses a global bilinear mapping plus a
+20 mm compact local residual layer. The production planner retains
+`grasp_x_offset_mm: +10` and `grasp_y_offset_mm: -15` as part of the validated
+command convention. Both offsets were removed from the taught references
+during fitting and are added once by the planner; do not add another X- or
+Y-only compensation. These post-calibration adjustments do not alter the raw
+sensor target or the fitted model.
 
 ## No-hardware validation
 
