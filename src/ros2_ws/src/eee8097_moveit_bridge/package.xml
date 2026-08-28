@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>eee8097_moveit_bridge</name>
-  <version>0.3.0</version>
+  <version>0.3.1</version>
   <description>MoveIt 2 Cartesian planning and collision-scene service for EEE8097.</description>
   <maintainer email="117880292+lester-zed@users.noreply.github.com">lester-zed</maintainer>
   <license>MIT</license>
@@ -12,6 +12,7 @@
   <depend>moveit_msgs</depend>
   <depend>moveit_ros_planning_interface</depend>
   <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
   <depend>shape_msgs</depend>
   <depend>std_srvs</depend>
 

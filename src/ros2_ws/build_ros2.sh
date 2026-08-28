@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 source /opt/ros/humble/setup.bash
 if [[ -f /opt/roarm_vendor_ws/install/setup.bash ]]; then

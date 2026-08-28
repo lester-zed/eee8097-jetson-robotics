@@ -5,6 +5,8 @@ ARG ROARM_VENDOR_COMMIT=40dbd84b553695212fab713e8465f817ba95454d
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    libblas-dev \
+    liblapack-dev \
     libgl1-mesa-dri \
     mesa-utils \
     python3-colcon-common-extensions \

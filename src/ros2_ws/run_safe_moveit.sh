@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 MODE="${1:-plan}"
 USE_RVIZ="${USE_RVIZ:-true}"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -u
+set -e
 
 source /opt/ros/humble/setup.bash
 if [[ -f /opt/roarm_vendor_ws/install/setup.bash ]]; then
