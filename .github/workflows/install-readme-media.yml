@@ -1,0 +1,69 @@
+name: Install native README media
+
+on:
+  push:
+    paths:
+      - '.media_upload/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  install-media:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct native media
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/assets
+          cat .media_upload/demo_*.part | tr -d '\n\r' | base64 --decode > docs/assets/demo.gif
+          cat .media_upload/hardware_*.part | tr -d '\n\r' | base64 --decode > docs/assets/hardware_overview.jpg
+          file docs/assets/demo.gif docs/assets/hardware_overview.jpg
+
+      - name: Update README media references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('README.md')
+          s = p.read_text()
+          s = s.replace('docs/assets/demo.svg', 'docs/assets/demo.gif')
+          s = s.replace('width="800"', 'width="600"', 1)
+          s = s.replace('docs/assets/hardware_overview.svg', 'docs/assets/hardware_overview.jpg')
+          s = s.replace('width="560"', 'width="600"', 1)
+          p.write_text(s)
+          PY
+          cat > docs/assets/README.md <<'EOF'
+          # README media assets
+
+          Portfolio-facing media used by the repository root `README.md`.
+
+          ## Current assets
+
+          - `demo.gif` — native animated GIF extracted from the recorded real-hardware execution.
+          - `hardware_overview.jpg` — native JPEG of the integrated mobile-manipulator platform.
+
+          The media is intentionally stored in native GitHub-renderable formats so the repository homepage works without SVG wrappers or external hosting.
+          EOF
+
+      - name: Remove temporary upload material
+        shell: bash
+        run: |
+          rm -rf .media_upload
+          rm -f docs/assets/demo.svg docs/assets/hardware_overview.svg docs/assets/.upload_test
+          rm -f .github/workflows/install-readme-media.yml
+
+      - name: Commit installed media
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'docs: install native README demo media'
+          git push origin HEAD:main
