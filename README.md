@@ -2,18 +2,16 @@
 
 A real-hardware robotics project integrating **YOLOv8 perception**, **RPLIDAR C1 ranging**, calibrated target localization, motion planning, and **RoArm-M2-S** execution on an **NVIDIA Jetson Orin Nano**.
 
-<!--
-Portfolio media slots.
-After adding the files under docs/assets/, remove this comment wrapper.
+<p align="center">
+  <img src="docs/assets/demo.svg" alt="Real-hardware vision-guided robotic manipulation sequence" width="800">
+</p>
+<p align="center"><sub>Real-hardware execution sequence extracted from the recorded system demo.</sub></p>
+
+### Real hardware platform
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="Vision-guided robotic manipulation demo" width="900">
+  <img src="docs/assets/hardware_overview.svg" alt="Jetson Orin Nano mobile manipulator hardware setup" width="560">
 </p>
-
-<p align="center">
-  <img src="docs/assets/hardware_overview.jpg" alt="Jetson Orin Nano robotics hardware setup" width="900">
-</p>
--->
 
 ## System overview
 
@@ -47,7 +45,7 @@ YOLO detection
   -> camera-guided RPLIDAR ranging
   -> base_link target localization
   -> measured command calibration
-  -> four-waypoint grasp-pose planning
+  -> four-waypoint target-pose planning
   -> feedback-verified RoArm execution
 ```
 
@@ -58,7 +56,7 @@ YOLO detection
 - Camera-guided LiDAR sector selection for target-specific range estimation.
 - Sensor-to-`base_link` localization with measured geometric calibration.
 - Workspace-aware target validation and guarded real-hardware execution.
-- Structured JSONL/CSV experiment logging for every completed, aborted, or failed pipeline run.
+- Structured JSONL/CSV experiment logging for completed, aborted, and failed pipeline runs.
 - Hardware-independent mock adapters and regression tests for development without the robot connected.
 - Dockerized Jetson development environment.
 - ROS 2 Humble / MoveIt 2 workspace with URDF/TF, real `/joint_states`, IK, collision-aware planning, current-TCP pose output, and guarded arm-only trajectory execution.
@@ -75,7 +73,7 @@ The current command-space calibration was fitted from **11 manually taught tool-
 | Leave-one-position-out planar RMSE | **7.96 mm** |
 | Previous model error on overlapping newly taught points | **21.37 mm** |
 
-The production model combines a global `bilinear_xy` mapping with a bounded `bilinear_local_xy` residual layer using a Wendland-C2 basis. These metrics describe **command-space calibration error**, not end-to-end physical grasp accuracy.
+The production model combines a global `bilinear_xy` mapping with a bounded `bilinear_local_xy` residual layer using a Wendland-C2 basis. These metrics describe **command-space calibration error**, not end-to-end physical task accuracy.
 
 ## Hardware
 
@@ -83,6 +81,7 @@ The production model combines a global `bilinear_xy` mapping with a bounded `bil
 - Waveshare RoArm-M2-S
 - Slamtec RPLIDAR C1
 - USB camera
+- Four-wheel mobile robot platform
 
 ## Software stack
 
@@ -210,14 +209,3 @@ The custom YOLO model is a runtime artifact and is intentionally not stored in t
 ```
 
 Place the trained weight file in `models/` before running the real vision pipeline. Mock and static validation paths do not require the physical robot.
-
-## Adding portfolio media
-
-The repository is prepared for:
-
-```text
-docs/assets/demo.gif
-docs/assets/hardware_overview.jpg
-```
-
-See [`docs/assets/README.md`](docs/assets/README.md) for recommended GIF conversion, image sizing, and the exact README snippet to enable after the files are added.
