@@ -1,19 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="451" viewBox="0 0 280 158" role="img" aria-label="Real-hardware robotic manipulation demo">
 <style>
-.frame { opacity: 0; animation: show 6s steps(1,end) infinite; }
+.frame { opacity: 0; animation: show 4s steps(1,end) infinite; }
 .f1 { animation-delay: 0s; }
 .f2 { animation-delay: 1s; }
 .f3 { animation-delay: 2s; }
 .f4 { animation-delay: 3s; }
-.f5 { animation-delay: 4s; }
-.f6 { animation-delay: 5s; }
-@keyframes show { 0%, 16.65% { opacity: 1; } 16.66%, 100% { opacity: 0; } }
+@keyframes show { 0%, 24.99% { opacity: 1; } 25%, 100% { opacity: 0; } }
 </style>
 <rect width="280" height="158" fill="#111"/>
 <image class="frame f1" href="demo_frames/frame_01.svg" x="0" y="0" width="280" height="158"/>
 <image class="frame f2" href="demo_frames/frame_02.svg" x="0" y="0" width="280" height="158"/>
 <image class="frame f3" href="demo_frames/frame_03.svg" x="0" y="0" width="280" height="158"/>
-<image class="frame f4" href="demo_frames/frame_04.svg" x="0" y="0" width="280" height="158"/>
-<image class="frame f5" href="demo_frames/frame_05.svg" x="0" y="0" width="280" height="158"/>
-<image class="frame f6" href="demo_frames/frame_06.svg" x="0" y="0" width="280" height="158"/>
+<image class="frame f4" href="demo_frames/frame_06.svg" x="0" y="0" width="280" height="158"/>
 </svg>
