@@ -20,8 +20,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p docs/assets
-          cat .media_upload/demo_*.part | tr -d '\n\r' | base64 --decode > docs/assets/demo.gif
-          cat .media_upload/hardware_*.part | tr -d '\n\r' | base64 --decode > docs/assets/hardware_overview.jpg
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, zlib
+
+          def restore(prefix, output):
+              parts = sorted(Path('.media_upload').glob(f'{prefix}_*.b85'))
+              if not parts:
+                  raise SystemExit(f'No staged parts found for {prefix}')
+              encoded = ''.join(p.read_text().strip() for p in parts).encode('ascii')
+              Path(output).write_bytes(zlib.decompress(base64.b85decode(encoded)))
+
+          restore('demo', 'docs/assets/demo.gif')
+          restore('hardware', 'docs/assets/hardware_overview.jpg')
+          PY
           file docs/assets/demo.gif docs/assets/hardware_overview.jpg
 
       - name: Update README media references
@@ -45,10 +57,10 @@ jobs:
 
           ## Current assets
 
-          - `demo.gif` — native animated GIF extracted from the recorded real-hardware execution.
+          - `demo.gif` — native 600 × 338 animated GIF extracted from the recorded real-hardware execution.
           - `hardware_overview.jpg` — native JPEG of the integrated mobile-manipulator platform.
 
-          The media is intentionally stored in native GitHub-renderable formats so the repository homepage works without SVG wrappers or external hosting.
+          Native GitHub-renderable formats are used so the repository homepage does not depend on SVG wrappers or external hosting.
           EOF
 
       - name: Remove temporary upload material
