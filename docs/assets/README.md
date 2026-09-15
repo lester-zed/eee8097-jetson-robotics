@@ -1,17 +1,12 @@
 # README media assets
 
-Portfolio-facing media used by the repository root `README.md` lives here.
+Portfolio-facing media used by the repository root `README.md`.
 
 ## Current assets
 
-```text
-demo.svg
-hardware_overview.svg
-```
+- `demo.gif` — native animated GIF extracted from the recorded real-hardware execution.
+- `hardware_overview.jpg` — native JPEG of the integrated mobile-manipulator platform.
 
-- `demo.svg` is a self-contained lightweight looping sequence built from selected frames of the recorded real-hardware execution.
-- `hardware_overview.svg` embeds the supplied real-platform photograph used in the README.
+Native GitHub-renderable formats are used so the repository homepage does not depend on SVG wrappers or external hosting.
 
-The root README keeps the media close to the project introduction so a recruiter can understand the physical system before reading the implementation details.
-
-Optional future additions can include a system architecture figure or calibration-result plot when they add information not already conveyed by the engineering sections.
+Keep this directory limited to presentation assets that materially help a recruiter or reviewer understand the implemented system.
