@@ -3,14 +3,18 @@
 A real-hardware robotics project integrating **YOLOv8 perception**, **RPLIDAR C1 ranging**, calibrated target localization, motion planning, and **RoArm-M2-S** execution on an **NVIDIA Jetson Orin Nano**.
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="Real-hardware vision-guided robotic manipulation sequence" width="600">
+  <img src="docs/assets/demo.gif"
+       alt="Real-hardware vision-guided robotic manipulation demo"
+       width="720">
 </p>
 <p align="center"><sub>Real-hardware execution sequence extracted from the recorded system demo.</sub></p>
 
 ### Real hardware platform
 
 <p align="center">
-  <img src="docs/assets/hardware_overview.jpg" alt="Jetson Orin Nano mobile manipulator hardware setup" width="600">
+  <img src="docs/assets/hardware_overview.jpg"
+       alt="Jetson Orin Nano mobile manipulator hardware platform"
+       width="700">
 </p>
 
 ## System overview
