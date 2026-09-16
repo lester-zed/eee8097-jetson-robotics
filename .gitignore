@@ -17,6 +17,26 @@ data/*
 !data/.gitkeep
 models/*
 !models/.gitkeep
+*.log
+*.jsonl
+
+# Model and accelerator artefacts
+*.pt
+*.pth
+*.onnx
+*.engine
+*.plan
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.*
 
 # VS Code
 .vscode/

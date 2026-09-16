@@ -5,12 +5,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MODE="${1:-plan}"
 
+if [[ -f "$REPO_ROOT/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$REPO_ROOT/.env"
+    set +a
+fi
+
 case "$MODE" in
     plan)
         ROS2_ROARM_DEVICE=/dev/null
         ;;
     observe|execute)
-        ROS2_ROARM_DEVICE="${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_888387d8d017f011b9526a7db887153e-if00-port0}"
+        ROS2_ROARM_DEVICE="${ROARM_DEVICE:-}"
+        if [[ -z "$ROS2_ROARM_DEVICE" ]]; then
+            echo "Error: ROARM_DEVICE must be configured for $MODE mode."
+            echo "Copy .env.example to .env and replace the placeholder path."
+            exit 1
+        fi
         if [[ ! -c "$ROS2_ROARM_DEVICE" ]]; then
             echo "Error: RoArm serial device not found: $ROS2_ROARM_DEVICE"
             exit 1

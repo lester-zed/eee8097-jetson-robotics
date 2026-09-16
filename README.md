@@ -108,6 +108,16 @@ git clone --recurse-submodules \
 cd eee8097-jetson-robotics
 ```
 
+Create a local device configuration and replace the placeholders with the
+stable paths reported by `ls -l /dev/serial/by-id/`:
+
+```bash
+cp .env.example .env
+```
+
+The local `.env` file is ignored by Git so machine-specific device identifiers
+are not published.
+
 Build and start the Jetson development container:
 
 ```bash
@@ -213,3 +223,9 @@ The custom YOLO model is a runtime artifact and is intentionally not stored in t
 ```
 
 Place the trained weight file in `models/` before running the real vision pipeline. Mock and static validation paths do not require the physical robot.
+
+## License
+
+Original code in this repository is licensed under the [MIT License](LICENSE).
+External SDKs, ROS packages, Python packages, and other dependencies retain
+their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
