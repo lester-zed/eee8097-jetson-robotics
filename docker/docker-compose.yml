@@ -44,8 +44,11 @@ services:
     command: /bin/bash
 
     devices:
-      - "${ROARM_DEVICE:?Set ROARM_DEVICE to the host RoArm serial device}:/dev/ttyROARM"
-      - "${RPLIDAR_DEVICE:?Set RPLIDAR_DEVICE to the host RPLIDAR serial device}:/dev/ttyRPLIDAR"
+      # Frozen hardware snapshot of the original Jetson test platform.
+      # Override these machine-specific defaults with ROARM_DEVICE and
+      # RPLIDAR_DEVICE when running the repository on different hardware.
+      - "${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_888387d8d017f011b9526a7db887153e-if00-port0}:/dev/ttyROARM"
+      - "${RPLIDAR_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_c877520e295df0119ae253401045c30f-if00-port0}:/dev/ttyRPLIDAR"
       - "${CAMERA_DEVICE:-/dev/video0}:/dev/video0"
 
     group_add:

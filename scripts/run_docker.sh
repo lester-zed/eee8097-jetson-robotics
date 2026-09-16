@@ -12,15 +12,12 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
     set +a
 fi
 
-ROARM_DEVICE="${ROARM_DEVICE:-}"
-RPLIDAR_DEVICE="${RPLIDAR_DEVICE:-}"
+# Frozen hardware snapshot of the original Jetson test platform.  The
+# environment variables (or an optional local .env file) still override these
+# machine-specific defaults when the repository is used on different hardware.
+ROARM_DEVICE="${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_888387d8d017f011b9526a7db887153e-if00-port0}"
+RPLIDAR_DEVICE="${RPLIDAR_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_c877520e295df0119ae253401045c30f-if00-port0}"
 CAMERA_DEVICE="${CAMERA_DEVICE:-/dev/video0}"
-
-if [[ -z "$ROARM_DEVICE" || -z "$RPLIDAR_DEVICE" ]]; then
-    echo "Error: ROARM_DEVICE and RPLIDAR_DEVICE must be configured."
-    echo "Copy .env.example to .env and replace the placeholder device paths."
-    exit 1
-fi
 
 if [[ ! -c "$ROARM_DEVICE" ]]; then
     echo "Error: RoArm serial device not found: $ROARM_DEVICE"

@@ -17,12 +17,9 @@ case "$MODE" in
         ROS2_ROARM_DEVICE=/dev/null
         ;;
     observe|execute)
-        ROS2_ROARM_DEVICE="${ROARM_DEVICE:-}"
-        if [[ -z "$ROS2_ROARM_DEVICE" ]]; then
-            echo "Error: ROARM_DEVICE must be configured for $MODE mode."
-            echo "Copy .env.example to .env and replace the placeholder path."
-            exit 1
-        fi
+        # Retain the original Jetson hardware ID as a reproducible snapshot;
+        # ROARM_DEVICE or .env can override it on another machine.
+        ROS2_ROARM_DEVICE="${ROARM_DEVICE:-/dev/serial/by-id/usb-Silicon_Labs_CP2102N_USB_to_UART_Bridge_Controller_888387d8d017f011b9526a7db887153e-if00-port0}"
         if [[ ! -c "$ROS2_ROARM_DEVICE" ]]; then
             echo "Error: RoArm serial device not found: $ROS2_ROARM_DEVICE"
             exit 1

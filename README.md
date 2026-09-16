@@ -108,15 +108,17 @@ git clone --recurse-submodules \
 cd eee8097-jetson-robotics
 ```
 
-Create a local device configuration and replace the placeholders with the
-stable paths reported by `ls -l /dev/serial/by-id/`:
+The launch scripts retain the original Jetson platform's stable USB `by-id`
+paths as a frozen, reproducible hardware snapshot. On different hardware,
+override those defaults with an optional local configuration:
 
 ```bash
 cp .env.example .env
+ls -l /dev/serial/by-id/
 ```
 
-The local `.env` file is ignored by Git so machine-specific device identifiers
-are not published.
+Replace the placeholders in `.env` with the new device paths. The local
+`.env` file remains ignored by Git.
 
 Build and start the Jetson development container:
 
